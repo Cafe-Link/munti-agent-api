@@ -1,0 +1,40 @@
+{
+  "name": "server",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "nodemon index.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "nodemonConfig": {
+    "ignore": [
+      "uploads/*",
+      "uploads"
+    ]
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "@google-cloud/aiplatform": "^6.6.0",
+    "@google-cloud/vertexai": "^1.12.0",
+    "@google/adk": "^0.6.1",
+    "agentmail": "^0.4.17",
+    "axios": "^1.15.0",
+    "cors": "^2.8.6",
+    "csvtojson": "^2.0.14",
+    "dotenv": "^17.4.0",
+    "express": "^5.2.1",
+    "morgan": "^1.10.0",
+    "multer": "^2.1.1",
+    "nodemon": "^3.1.9",
+    "pdf-parse": "^1.1.1",
+    "pg": "^8.20.0",
+    "tesseract.js": "^7.0.0",
+    "xlsx": "^0.18.5",
+    "zod": "^4.3.6"
+  }
+}

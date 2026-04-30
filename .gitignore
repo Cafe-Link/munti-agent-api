@@ -1,0 +1,12 @@
+/.env
+/.env.example
+/.env.development
+/.env.test
+/.env.production
+/.vscode
+.DS_Store
+*.log
+*.tsbuildinfo
+/node_modules
+/uploads
+/vector_embeddings
