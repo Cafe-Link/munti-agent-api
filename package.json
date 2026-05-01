@@ -1,7 +1,7 @@
 {
   "name": "server",
   "version": "1.0.0",
-  "description": "",
+  "description": "AI Agents Backend",
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
@@ -19,11 +19,14 @@
   "author": "",
   "license": "ISC",
   "type": "commonjs",
+  "engines": {
+    "node": ">=24.0.0"
+  },
   "dependencies": {
     "@google-cloud/aiplatform": "^6.6.0",
     "@google-cloud/vertexai": "^1.12.0",
     "@google/adk": "^0.6.1",
-    "@supabase/supabase-js": "^2.105.1",
+    "@supabase/supabase-js": "^2.45.1",
     "agentmail": "^0.4.17",
     "axios": "^1.15.0",
     "cors": "^2.8.6",
@@ -33,11 +36,13 @@
     "isomorphic-fetch": "^3.0.0",
     "morgan": "^1.10.0",
     "multer": "^2.1.1",
-    "nodemon": "^3.1.9",
     "pdf-parse": "^1.1.1",
     "pg": "^8.20.0",
     "tesseract.js": "^7.0.0",
     "xlsx": "^0.18.5",
     "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.9"
   }
 }
