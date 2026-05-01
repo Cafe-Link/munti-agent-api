@@ -19,7 +19,7 @@ const login = async (req, res) => {
 
   try {
     const schema = DB.schema.toLowerCase();
-    const query = `SELECT name, allowed_agents FROM ${schema}.user_details WHERE pin = $1`;
+    const query = `SELECT name, allowed_agents, role FROM ${schema}.user_details WHERE pin = $1`;
     const result = await pool.query(query, [pin]);
 
     if (result.rows.length === 0) {
@@ -31,7 +31,8 @@ const login = async (req, res) => {
       success: true,
       user: {
         name: user.name,
-        allowed_agents: user.allowed_agents
+        allowed_agents: user.allowed_agents,
+        role: user.role
       }
     });
   } catch (err) {
