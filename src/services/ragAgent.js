@@ -52,8 +52,7 @@ async function getQueryEmbedding(text) {
     }
   });
 
-  console.log('[Embedding] API Response:', JSON.stringify(response.data, null, 2));
-
+  
   return response.data.predictions[0].embeddings.values;
 }
 
