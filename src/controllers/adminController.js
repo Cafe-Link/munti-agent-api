@@ -12,6 +12,36 @@ const pool = new Pool({
 
 const schema = DB.schema.toLowerCase();
 
+const parseAllowedAgents = (allowedAgents) => {
+  if (!allowedAgents) return [];
+  if (Array.isArray(allowedAgents)) return allowedAgents;
+
+  if (typeof allowedAgents === 'string') {
+    try {
+      const parsed = JSON.parse(allowedAgents);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (err) {
+      return [];
+    }
+  }
+
+  return [];
+};
+
+const getAgentsByIds = async (agentIds) => {
+  if (agentIds.length === 0) return [];
+
+  const agentsResult = await pool.query(
+    `SELECT id, name, type FROM ${schema}.agents WHERE id = ANY($1::text[])`,
+    [agentIds]
+  );
+
+  const sortIndex = new Map(agentIds.map((id, index) => [id, index]));
+  return agentsResult.rows.sort(
+    (a, b) => sortIndex.get(String(a.id)) - sortIndex.get(String(b.id))
+  );
+};
+
 // API 1: Get User List
 const getUsers = async (req, res) => {
   const { page = 1, limit = 10, search = '' } = req.query;
@@ -37,7 +67,10 @@ const getUsers = async (req, res) => {
     const total = parseInt(countResult.rows[0].count);
 
     res.status(200).json({
-      data: result.rows,
+      data: result.rows.map(row => ({
+        ...row,
+        allowed_agents: parseAllowedAgents(row.allowed_agents)
+      })),
       total,
       page: parseInt(page),
       totalPages: Math.ceil(total / limit)
@@ -62,19 +95,34 @@ const getAgents = async (req, res) => {
 
 // API 3: Update User Allowed Agents
 const updateUserAgents = async (req, res) => {
-  const { userId, allowed_agents } = req.body;
+  const { userId } = req.body;
+  const requestedAgents = req.body.allowed_agent ?? req.body.allowed_agents;
 
-  if (!userId || !Array.isArray(allowed_agents)) {
-    return res.status(400).json({ error: 'User ID and allowed_agents array are required' });
+  if (!userId || !Array.isArray(requestedAgents)) {
+    return res.status(400).json({ error: 'User ID and allowed_agent array are required' });
   }
 
   try {
-    const query = `UPDATE ${schema}.user_details SET allowed_agents = $1 WHERE id = $2`;
-    const result = await pool.query(query, [JSON.stringify(allowed_agents), userId]);
-
-    if (result.rowCount === 0) {
+    const userResult = await pool.query(`SELECT id FROM ${schema}.user_details WHERE id = $1`, [userId]);
+    if (userResult.rowCount === 0) {
       return res.status(404).json({ error: 'User not found' });
     }
+
+    // Ensure we only save canonical agents that actually exist
+    const agentIds = requestedAgents.map(a => typeof a === 'object' ? (a.id || a.agentId) : a);
+    const canonicalAgents = await getAgentsByIds(agentIds);
+
+    if (canonicalAgents.length !== agentIds.length) {
+        const foundIds = new Set(canonicalAgents.map(a => String(a.id)));
+        const missingIds = agentIds.filter(id => !foundIds.has(String(id)));
+        return res.status(400).json({
+            error: 'One or more selected agents are no longer available',
+            invalidAgentIds: missingIds
+        });
+    }
+
+    const query = `UPDATE ${schema}.user_details SET allowed_agents = $1 WHERE id = $2 RETURNING id, allowed_agents`;
+    await pool.query(query, [JSON.stringify(canonicalAgents), userId]);
 
     res.status(200).json({ success: true, message: 'User agents updated successfully' });
   } catch (err) {
