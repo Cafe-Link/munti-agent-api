@@ -1,7 +1,7 @@
 const videoProcessingService = require('../services/videoProcessingService');
 const customModelVideoService = require('../services/CustomModelVideoService');
+const gcsService = require('../services/ingestion/gcsService');
 const path = require('path');
-const fs = require('fs/promises');
 
 const processVideo = async (req, res) => {
   try {
@@ -9,18 +9,25 @@ const processVideo = async (req, res) => {
       return res.status(400).json({ error: 'No video file uploaded' });
     }
 
-    const videoPath = req.file.path;
+    console.log(`[VideoController] Uploading video to GCS: ${req.file.originalname}`);
+    const gcsResult = await gcsService.uploadFile(req.file);
+    
     const videoId = Date.now().toString();
 
-    console.log(`[VideoController] Starting standard processing for video: ${req.file.originalname}`);
+    console.log(`[VideoController] Starting standard processing for video ID: ${videoId}`);
     
-    // Start processing (this might take a while, so in a real app you might want to return a job ID)
-    const results = await videoProcessingService.processVideo(videoPath, videoId);
+    // We pass the file with buffer and gcs metadata to the service
+    // The service can decide to download it locally for ffmpeg or process directly
+    const results = await videoProcessingService.processVideo({
+      ...req.file,
+      gcsUrl: gcsResult.url,
+      gcsFileName: gcsResult.fileName
+    }, videoId);
 
     res.status(200).json({
       message: 'Video processed successfully (Standard)',
       videoId,
-      resultsPath: `vector_embeddings/${path.basename(videoPath, path.extname(videoPath))}_embeddings.json`,
+      gcsUrl: gcsResult.url,
       summary: {
         totalFrames: results.frames.length,
         transcriptLength: results.transcript.length,
@@ -39,17 +46,23 @@ const processVideoWithCustomModel = async (req, res) => {
       return res.status(400).json({ error: 'No video file uploaded' });
     }
 
-    const videoPath = req.file.path;
+    console.log(`[VideoController] Uploading video to GCS (Custom Model): ${req.file.originalname}`);
+    const gcsResult = await gcsService.uploadFile(req.file);
+    
     const videoId = Date.now().toString();
 
-    console.log(`[VideoController] Starting custom model processing for video: ${req.file.originalname}`);
+    console.log(`[VideoController] Starting custom model processing for video ID: ${videoId}`);
     
-    const results = await customModelVideoService.processVideo(videoPath, videoId);
+    const results = await customModelVideoService.processVideo({
+      ...req.file,
+      gcsUrl: gcsResult.url,
+      gcsFileName: gcsResult.fileName
+    }, videoId);
 
     res.status(200).json({
       message: 'Video processed successfully (Custom Model)',
       videoId,
-      resultsPath: `vector_embeddings/${path.basename(videoPath, path.extname(videoPath))}.json`,
+      gcsUrl: gcsResult.url,
       summary: {
         totalFrames: results.totalFrames,
         transcriptLength: results.transcript.length,

@@ -64,25 +64,71 @@ class VideoVectorStoreService {
     }
   }
 
+  /**
+   * Comprehensive multimodal search across visual and textual embeddings.
+   * Returns rounded similarity scores (1 - distance).
+   */
+  async searchSimilarFrames(visualVector, textualVector, originalText, limit = 10) {
+    let query;
+    let params;
+
+    if (visualVector && textualVector) {
+        query = `
+          SELECT video_id, frame_id, timestamp, frame_file, caption, ocr_text,
+                 (1 - (visual_embedding <=> $1)) as visual_sim,
+                 (1 - (textual_embedding <=> $2)) as textual_sim
+          FROM "${this.schema}".video_embeddings
+          ORDER BY (visual_sim * 0.5 + textual_sim * 0.5) DESC
+          LIMIT $3
+        `;
+        params = [`[${visualVector.join(',')}]`, `[${textualVector.join(',')}]`, limit];
+    } else if (visualVector) {
+        query = `
+          SELECT video_id, frame_id, timestamp, frame_file, caption, ocr_text,
+                 (1 - (visual_embedding <=> $1)) as similarity
+          FROM "${this.schema}".video_embeddings
+          ORDER BY similarity DESC
+          LIMIT $2
+        `;
+        params = [`[${visualVector.join(',')}]`, limit];
+    } else {
+        query = `
+          SELECT video_id, frame_id, timestamp, frame_file, caption, ocr_text,
+                 (1 - (textual_embedding <=> $1)) as similarity
+          FROM "${this.schema}".video_embeddings
+          ORDER BY similarity DESC
+          LIMIT $2
+        `;
+        params = [`[${textualVector.join(',')}]`, limit];
+    }
+
+    const res = await this.pool.query(query, params);
+    return res.rows.map(row => {
+        let sim = row.similarity !== undefined ? parseFloat(row.similarity) : (row.visual_sim * 0.5 + row.textual_sim * 0.5);
+        
+        // Ensure similarity is within [0, 1] for display purposes
+        // and rounded to 4 decimal places for readability
+        const finalScore = Math.max(0, Math.min(1, sim));
+        
+        return {
+            ...row,
+            score: parseFloat(finalScore.toFixed(4))
+        };
+    });
+  }
+
   async findSimilarFrames(queryEmbedding, limit = 5) {
-    // We can search against visual_embedding or textual_embedding. 
-    // Usually for multimodal chat, textual_embedding (caption + ocr) or visual_embedding works.
-    // Let's search against textual_embedding as it's more common for text queries.
-    // In VideoChatService, it uses getMultimodalEmbedding which returns either depending on input.
-    
     const query = `
       SELECT video_id, frame_id, timestamp, frame_file, caption, ocr_text,
-             (textual_embedding <=> $1) as distance
+             (1 - (textual_embedding <=> $1)) as similarity
       FROM "${this.schema}".video_embeddings
-      ORDER BY distance ASC
+      ORDER BY similarity DESC
       LIMIT $2
     `;
     const res = await this.pool.query(query, [`[${queryEmbedding.join(',')}]`, limit]);
     return res.rows.map(row => ({
-      ...row,
-      distance: 1 - row.distance // Convert cosine distance to similarity if needed, or just keep as is. 
-      // pgvector <=> is cosine distance. 0 is identical, 2 is opposite.
-      // Vertex AI similarity is usually 1 - distance.
+        ...row,
+        score: parseFloat(Math.max(0, Math.min(1, row.similarity)).toFixed(4))
     }));
   }
 
