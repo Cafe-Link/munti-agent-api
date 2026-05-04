@@ -19,6 +19,7 @@ module.exports = {
     port: process.env.DB_PORT || 5432,
     table: process.env.DB_TABLE
   },
+  GCS_BUCKET: process.env.GCS_BUCKET,
   VECTOR_SEARCH: {
     apiEndpoint: process.env.API_ENDPOINT,
     indexEndpoint: process.env.INDEX_ENDPOINT,

@@ -1,8 +1,4 @@
-const fs = require('fs/promises');
-const path = require('path');
 const { VertexAI } = require('@google-cloud/vertexai');
-const pdfParseModule = require('pdf-parse');
-const pdfParse = typeof pdfParseModule === 'function' ? pdfParseModule : pdfParseModule?.default;
 const csv = require('csvtojson');
 const XLSX = require('xlsx');
 const { GOOGLE_CLOUD_PROJECT, GEMINI_MODEL } = require('../../config/constants');
@@ -37,11 +33,15 @@ class ExtractorService {
 
   async extractFileContent(file) {
     const mime = file.mimetype;
-    const filePath = file.path;
+    const buffer = file.buffer;
+
+    if (!buffer) {
+        throw new Error(`Buffer missing for file: ${file.originalname}`);
+    }
 
     // 1. PDF / Images (Vision-based extraction)
     if (mime === 'application/pdf' || mime.startsWith('image/')) {
-      const data = (await fs.readFile(filePath)).toString('base64');
+      const data = buffer.toString('base64');
       const prompt = `Analyze this document. Extract all text into 'text_content' and tables into 'tables' (markdown). 
       Return JSON: { "text_content": "...", "tables": [{ "markdown": "..." }] }`;
 
@@ -64,13 +64,13 @@ class ExtractorService {
 
     // 2. CSV
     if (mime.includes('csv')) {
-      const jsonArray = await csv().fromFile(filePath);
+      const jsonArray = await csv().fromString(buffer.toString('utf8'));
       return `[CSV Data]\n${JSON.stringify(jsonArray, null, 2)}`;
     }
 
     // 3. Excel
     if (mime.includes('spreadsheet') || mime.includes('excel')) {
-      const workbook = XLSX.readFile(filePath);
+      const workbook = XLSX.read(buffer);
       let excelContent = "";
       workbook.SheetNames.forEach(sheet => {
         const data = XLSX.utils.sheet_to_json(workbook.Sheets[sheet]);
@@ -80,7 +80,7 @@ class ExtractorService {
     }
 
     // 4. Text Fallback
-    return await fs.readFile(filePath, 'utf8');
+    return buffer.toString('utf8');
   }
 }
 

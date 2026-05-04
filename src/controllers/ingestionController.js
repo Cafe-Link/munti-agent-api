@@ -4,6 +4,7 @@ const extractorService = require('../services/ingestion/extractorService');
 const chunkerService = require('../services/ingestion/chunkerService');
 const embedderService = require('../services/ingestion/embedderService');
 const vectorStoreService = require('../services/ingestion/vectorStoreService');
+const gcsService = require('../services/ingestion/gcsService');
 
 const pool = new Pool({
   host: DB.host,
@@ -29,27 +30,38 @@ const handleIngestion = async (req, res) => {
   try {
     console.log(`[Ingestion] Creating dynamic agent for: ${documentName} by ${userName}`);
 
-    // 1. Generate Unique Table Name
+    // 1. Upload Files to GCS
+    const uploadedFiles = [];
+    for (const file of files) {
+        const result = await gcsService.uploadFile(file);
+        uploadedFiles.push({
+            ...file,
+            gcsFileName: result.fileName,
+            gcsUrl: result.url
+        });
+    }
+
+    // 2. Generate Unique Table Name
     const sanitizedName = documentName.toLowerCase().replace(/[^a-z0-9]/g, '_');
     const tableName = `idx_${sanitizedName}_${Date.now()}`;
 
-    // 2. Create the Table
+    // 3. Create the Table
     await vectorStoreService.createTable(tableName);
 
-    // 3. Extraction
-    const document = await extractorService.extractDocument(files, department, documentName);
+    // 4. Extraction
+    const document = await extractorService.extractDocument(uploadedFiles, department, documentName);
     
-    // 4. Semantic Chunking
+    // 5. Semantic Chunking
     const chunks = await chunkerService.generateChunks(document);
     if (!chunks.length) throw new Error('Failed to generate semantic chunks');
 
-    // 5. Neural Embedding
+    // 6. Neural Embedding
     const embeddedChunks = await embedderService.embedChunks(chunks);
 
-    // 6. Vector Storage (Into the NEW table)
+    // 7. Vector Storage (Into the NEW table)
     const storageResult = await vectorStoreService.saveChunks(embeddedChunks, tableName);
 
-    // 7. Update User Config
+    // 8. Update User Config
     const schema = DB.schema.toLowerCase();
     const userResult = await pool.query(`SELECT allowed_agents FROM ${schema}.user_details WHERE name = $1`, [userName]);
     
@@ -79,4 +91,14 @@ const handleIngestion = async (req, res) => {
   }
 };
 
-module.exports = { handleIngestion };
+const handleClearUploadedDocs = async (req, res) => {
+  try {
+    const result = await gcsService.clearUploadedDocs();
+    res.status(200).json(result);
+  } catch (err) {
+    console.error('[Ingestion Controller] Clear failed:', err);
+    res.status(500).json({ error: 'Failed to clear uploaded documents', details: err.message });
+  }
+};
+
+module.exports = { handleIngestion, handleClearUploadedDocs };

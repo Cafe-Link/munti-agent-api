@@ -79,6 +79,9 @@ class VectorStoreService {
    */
   async semanticSearch(queryVector, tableName, limit = 5) {
     const targetTable = tableName || this.table;
+    if (!targetTable) {
+      throw new Error('VectorStore semanticSearch: No table name provided');
+    }
     const fullTable = `"${this.schema}"."${targetTable.toLowerCase()}"`;
     const query = `
       SELECT content, department, document_name, summary, 

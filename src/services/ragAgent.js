@@ -1,4 +1,3 @@
-const fs = require('fs/promises');
 const pdfParseModule = require('pdf-parse');
 const pdfParse = typeof pdfParseModule === 'function' ? pdfParseModule : pdfParseModule?.default;
 const csv = require('csvtojson');
@@ -65,20 +64,19 @@ let temporaryKnowledgeBase = [];
 async function processFile(file) {
   let content = '';
   const mime = file.mimetype || '';
-  const filePath = file.path;
   const originalName = (file.originalname || '').toLowerCase();
+  const buffer = file.buffer;
 
   try {
-    if (!filePath) throw new Error('Invalid file: missing path');
+    if (!buffer) throw new Error('Invalid file: missing buffer');
 
-    const readTextFile = () => fs.readFile(filePath, 'utf8');
+    const readText = () => buffer.toString('utf8');
 
     if (mime === 'application/pdf' || originalName.endsWith('.pdf')) {
-      const dataBuffer = await fs.readFile(filePath);
-      const pdfData = await pdfParse(dataBuffer);
+      const pdfData = await pdfParse(buffer);
       content = `[PDF Content: ${originalName}]\n${pdfData.text || ''}`;
     } else if (mime === 'application/json' || originalName.endsWith('.json')) {
-      const raw = await readTextFile();
+      const raw = readText();
       try {
         const parsed = JSON.parse(raw);
         content = `[JSON Data: ${originalName}]\n${JSON.stringify(parsed, null, 2)}`;
@@ -86,25 +84,26 @@ async function processFile(file) {
         content = `[Raw JSON String: ${originalName}]\n${raw}`;
       }
     } else if (mime.includes('csv') || originalName.endsWith('.csv')) {
-      const jsonArray = await csv().fromFile(filePath);
+      const jsonArray = await csv().fromString(readText());
       content = `[CSV Tabular Data: ${originalName}]\n${JSON.stringify(jsonArray, null, 2)}`;
     } else if (mime.includes('spreadsheet') || mime.includes('excel') || originalName.endsWith('.xlsx')) {
-      const workbook = XLSX.readFile(filePath);
+      const workbook = XLSX.read(buffer);
       const sheetData = {};
       workbook.SheetNames.forEach(sheetName => {
         sheetData[sheetName] = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], { defval: '' });
       });
       content = `[Excel Spreadsheet: ${originalName}]\n${JSON.stringify(sheetData, null, 2)}`;
     } else if (mime.startsWith('image/') || /\.(jpg|jpeg|png)$/i.test(originalName)) {
-      const { data: { text } } = await Tesseract.recognize(filePath, 'eng');
+      const { data: { text } } = await Tesseract.recognize(buffer, 'eng');
       content = `[Image OCR Result: ${originalName}]\n${text || ''}`;
     } else {
-      content = `[Document: ${originalName}]\n${await readTextFile()}`;
+      content = `[Document: ${originalName}]\n${readText()}`;
     }
 
     temporaryKnowledgeBase.push(content);
     return { success: true };
   } catch (err) {
+    console.error(`[RagAgent] Error processing ${originalName}:`, err);
     return { success: false, message: err.message };
   }
 }
