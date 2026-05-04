@@ -1,13 +1,24 @@
 const { processFile, getRagResponse, getCompanyRagResponse, getCompanyRagResponseV2, clearKnowledgeBase } = require('../services/ragAgent');
+const gcsService = require('../services/ingestion/gcsService');
 
 const handleUpload = async (req, res) => {
   const file = req.file;
   if (!file) return res.status(400).json({ error: 'No file uploaded' });
 
   try {
-    const result = await processFile(file);
-    res.status(200).json(result);
+    // 1. Upload to GCS
+    const result = await gcsService.uploadFile(file);
+
+    // 2. Process file using GCS metadata and buffer
+    const processResult = await processFile({
+        ...file,
+        gcsFileName: result.fileName,
+        gcsUrl: result.url
+    });
+
+    res.status(200).json(processResult);
   } catch (err) {
+    console.error('Error in handleUpload:', err);
     res.status(500).json({ error: 'Error processing file' });
   }
 };
