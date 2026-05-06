@@ -9,6 +9,7 @@ const ragRoutes = require('./routes/ragRoutes');
 const ingestionRoutes = require('./routes/ingestionRoutes');
 const authRoutes = require('./routes/authRoutes');
 const videoRoutes = require('./routes/videoRoutes');
+const videoV2Routes = require('./routes/videoV2Routes');
 const adminRoutes = require('./routes/adminRoutes');
 
 const app = express();
@@ -38,6 +39,7 @@ app.use('/api/agents/rag', ragRoutes);
 app.use('/api/ingestion', ingestionRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/video', videoRoutes);
+app.use('/api/video-oracle-v2', videoV2Routes);
 app.use('/api/admin', adminRoutes);
 
 // Health check

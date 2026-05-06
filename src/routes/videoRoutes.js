@@ -5,18 +5,11 @@ const path = require('path');
 const videoController = require('../controllers/videoController');
 const videoChatController = require('../controllers/videoChatController');
 
-// Configure multer for video uploads
-const videoStorage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, 'uploads/');
-  },
-  filename: (req, file, cb) => {
-    cb(null, `video_${Date.now()}${path.extname(file.originalname)}`);
-  }
-});
+// Use memory storage for cloud uploads
+const storage = multer.memoryStorage();
 
 const videoUpload = multer({ 
-  storage: videoStorage,
+  storage: storage,
   fileFilter: (req, file, cb) => {
     const filetypes = /mp4|mov|avi|mkv/;
     const mimetype = filetypes.test(file.mimetype);
@@ -29,18 +22,8 @@ const videoUpload = multer({
   }
 });
 
-// Configure multer for image queries
-const imageStorage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, 'uploads/queries/');
-  },
-  filename: (req, file, cb) => {
-    cb(null, `query_${Date.now()}${path.extname(file.originalname)}`);
-  }
-});
-
 const imageUpload = multer({ 
-  storage: imageStorage,
+  storage: storage,
   fileFilter: (req, file, cb) => {
     const filetypes = /jpeg|jpg|png|webp/;
     const mimetype = filetypes.test(file.mimetype);

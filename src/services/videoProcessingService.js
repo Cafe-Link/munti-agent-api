@@ -6,6 +6,7 @@ const axios = require('axios');
 const pLimit = require('p-limit');
 const { GoogleAuth } = require('google-auth-library');
 const { VertexAI } = require('@google-cloud/vertexai');
+const gcsService = require('./ingestion/gcsService');
 
 const {
   GOOGLE_CLOUD_PROJECT,
@@ -94,7 +95,7 @@ async function runCommand(command, args) {
   });
 }
 
-async function getMultimodalEmbedding({ text = null, imagePath = null }) {
+async function getMultimodalEmbedding({ text = null, imagePath = null, imageBuffer = null }) {
   const token = await getAccessToken();
 
   const url = `https://us-central1-aiplatform.googleapis.com/v1/projects/${GOOGLE_CLOUD_PROJECT}/locations/us-central1/publishers/google/models/multimodalembedding:predict`;
@@ -103,11 +104,11 @@ async function getMultimodalEmbedding({ text = null, imagePath = null }) {
 
   if (text) instance.text = text;
 
-  if (imagePath) {
-    const imageBuffer = await fs.readFile(imagePath);
+  if (imagePath || imageBuffer) {
+    const dataBuffer = imageBuffer || await fs.readFile(imagePath);
 
     instance.image = {
-      bytesBase64Encoded: imageBuffer.toString('base64'),
+      bytesBase64Encoded: dataBuffer.toString('base64'),
     };
   }
 
@@ -138,6 +139,7 @@ class VideoProcessingService {
     this.baseDir = path.join(__dirname, '../../uploads');
     this.framesDir = path.join(this.baseDir, 'frames');
     this.audioDir = path.join(this.baseDir, 'audio');
+    this.tempDir = path.join(this.baseDir, 'temp');
     this.outputDir = path.join(__dirname, '../../vector_embeddings');
 
     this.limit = pLimit(CONCURRENCY);
@@ -147,6 +149,7 @@ class VideoProcessingService {
   async init() {
     await fs.mkdir(this.framesDir, { recursive: true });
     await fs.mkdir(this.audioDir, { recursive: true });
+    await fs.mkdir(this.tempDir, { recursive: true });
     await fs.mkdir(this.outputDir, { recursive: true });
 
     if (!this.worker) {
@@ -154,14 +157,22 @@ class VideoProcessingService {
     }
   }
 
-  async processVideo(videoPath, videoId) {
+  async processVideo(file, videoId) {
     await this.init();
 
     const start = Date.now();
+    const gcsFileName = file.gcsFileName;
+    const originalName = file.originalname;
+    
+    // 0. Download from GCS to local temp for ffmpeg processing
+    console.log(`[GCS] Downloading video for processing: ${gcsFileName}`);
+    const videoBuffer = await gcsService.downloadFile(gcsFileName);
+    const localTempPath = path.join(this.tempDir, `${Date.now()}-${originalName}`);
+    await fs.writeFile(localTempPath, videoBuffer);
 
     const videoName = path.basename(
-      videoPath,
-      path.extname(videoPath)
+      localTempPath,
+      path.extname(localTempPath)
     );
 
     const framePattern = path.join(
@@ -176,134 +187,141 @@ class VideoProcessingService {
 
     console.log('================================================');
     console.log(`[START] Processing Video: ${videoId}`);
-    console.log(`[FILE] ${videoPath}`);
+    console.log(`[FILE] ${localTempPath}`);
     console.log(`[TIME] ${new Date().toLocaleString()}`);
     console.log('================================================');
 
-    /* Step 1 */
-    console.log('[STEP 1/5] Extracting frames (1 FPS)...');
-
-    await runCommand('ffmpeg', [
-      '-i',
-      videoPath,
-      '-vf',
-      'fps=1',
-      framePattern,
-    ]);
-
-    console.log('[DONE] Frame extraction completed.');
-
-    /* Step 2 */
-    console.log('[STEP 2/5] Extracting audio...');
-
-    await runCommand('ffmpeg', [
-      '-i',
-      videoPath,
-      '-q:a',
-      '0',
-      '-map',
-      'a?',
-      audioPath,
-    ]);
-
-    console.log('[DONE] Audio extraction completed.');
-
-    /* Step 3 */
-    console.log('[STEP 3/5] Transcribing audio...');
-
-    const transcript = await this.transcribeAudio(audioPath);
-
-    console.log(
-      `[DONE] Audio transcription completed. Characters: ${transcript.length}`
-    );
-
-    /* Step 4 */
-    console.log('[STEP 4/5] Processing frames...');
-
-    const files = (await fs.readdir(this.framesDir))
-      .filter(
-        (file) =>
-          file.startsWith(videoName) &&
-          file.endsWith('.jpg')
-      )
-      .sort();
-
-    console.log(`[INFO] Total frames found: ${files.length}`);
-    console.log(
-      `[INFO] Processing with concurrency: ${CONCURRENCY}`
-    );
-
-    const frames = [];
-
-    await Promise.all(
-      files.map((file, index) =>
-        this.limit(async () => {
-          console.log(
-            `[FRAME START] ${file} | Timestamp: ${index}s`
-          );
-
-          const framePath = path.join(this.framesDir, file);
-          const timestamp = index;
-
-          const result = await this.processFrame(
-            framePath,
-            file,
-            timestamp,
-            videoId
-          );
-
-          frames.push(result);
-
-          console.log(`[FRAME DONE] ${file}`);
-        })
-      )
-    );
-
-    frames.sort((a, b) => a.timestamp - b.timestamp);
-
-    /* Step 5 */
-    const output = {
-      videoId,
-      transcript,
-      totalFrames: frames.length,
-      processedAt: new Date().toISOString(),
-      frames,
-    };
-
-    console.log('[STEP 5/5] Saving to Database...');
     try {
-      await videoVectorStoreService.saveVideoMetadata(output);
-      await videoVectorStoreService.saveFrameEmbeddings(videoId, frames);
-      console.log('[DONE] Data saved to PostgreSQL.');
-    } catch (err) {
-      console.error('[ERROR] Failed to save to database:', err.message);
+      /* Step 1 */
+      console.log('[STEP 1/5] Extracting frames (1 FPS)...');
+
+      await runCommand('ffmpeg', [
+        '-i',
+        localTempPath,
+        '-vf',
+        'fps=1',
+        framePattern,
+      ]);
+
+      console.log('[DONE] Frame extraction completed.');
+
+      /* Step 2 */
+      console.log('[STEP 2/5] Extracting audio...');
+
+      await runCommand('ffmpeg', [
+        '-i',
+        localTempPath,
+        '-q:a',
+        '0',
+        '-map',
+        'a?',
+        audioPath,
+      ]);
+
+      console.log('[DONE] Audio extraction completed.');
+
+      /* Step 3 */
+      console.log('[STEP 3/5] Transcribing audio...');
+
+      const transcript = await this.transcribeAudio(audioPath);
+
+      console.log(
+        `[DONE] Audio transcription completed. Characters: ${transcript.length}`
+      );
+
+      /* Step 4 */
+      console.log('[STEP 4/5] Processing frames...');
+
+      const files = (await fs.readdir(this.framesDir))
+        .filter(
+          (file) =>
+            file.startsWith(videoName) &&
+            file.endsWith('.jpg')
+        )
+        .sort();
+
+      console.log(`[INFO] Total frames found: ${files.length}`);
+      console.log(
+        `[INFO] Processing with concurrency: ${CONCURRENCY}`
+      );
+
+      const frames = [];
+
+      await Promise.all(
+        files.map((file, index) =>
+          this.limit(async () => {
+            console.log(
+              `[FRAME START] ${file} | Timestamp: ${index}s`
+            );
+
+            const framePath = path.join(this.framesDir, file);
+            const timestamp = index;
+
+            const result = await this.processFrame(
+              framePath,
+              file,
+              timestamp,
+              videoId
+            );
+
+            frames.push(result);
+
+            console.log(`[FRAME DONE] ${file}`);
+          })
+        )
+      );
+
+      frames.sort((a, b) => a.timestamp - b.timestamp);
+
+      /* Step 5 */
+      const output = {
+        videoId,
+        transcript,
+        totalFrames: frames.length,
+        processedAt: new Date().toISOString(),
+        frames,
+      };
+
+      console.log('[STEP 5/5] Saving to Database...');
+      try {
+        await videoVectorStoreService.saveVideoMetadata(output);
+        await videoVectorStoreService.saveFrameEmbeddings(videoId, frames);
+        console.log('[DONE] Data saved to PostgreSQL.');
+      } catch (err) {
+        console.error('[ERROR] Failed to save to database:', err.message);
+      }
+
+      const outputPath = path.join(
+        this.outputDir,
+        `${videoName}.json`
+      );
+
+      console.log('[STEP 5/5 (Cont)] Writing JSON backup...');
+
+      await fs.writeFile(
+        outputPath,
+        JSON.stringify(output, null, 2)
+      );
+
+      console.log('[DONE] Output saved successfully.');
+      console.log('================================================');
+      console.log(`[COMPLETE] ${videoId}`);
+      console.log(`[OUTPUT] ${outputPath}`);
+      console.log(
+        `[TOTAL TIME] ${(
+          (Date.now() - start) /
+          1000
+        ).toFixed(1)} seconds`
+      );
+      console.log('================================================');
+
+      return output;
+    } finally {
+      // Cleanup temp local video file
+      try {
+        await fs.unlink(localTempPath);
+      } catch (e) {}
     }
-
-    const outputPath = path.join(
-      this.outputDir,
-      `${videoName}.json`
-    );
-
-    console.log('[STEP 5/5 (Cont)] Writing JSON backup...');
-
-    await fs.writeFile(
-      outputPath,
-      JSON.stringify(output, null, 2)
-    );
-
-    console.log('[DONE] Output saved successfully.');
-    console.log('================================================');
-    console.log(`[COMPLETE] ${videoId}`);
-    console.log(`[OUTPUT] ${outputPath}`);
-    console.log(
-      `[TOTAL TIME] ${(
-        (Date.now() - start) /
-        1000
-      ).toFixed(1)} seconds`
-    );
-    console.log('================================================');
-
-    return output;
   }
 
   async processFrame(framePath, frameFile, timestamp, videoId) {
