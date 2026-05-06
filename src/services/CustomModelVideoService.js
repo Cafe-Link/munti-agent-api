@@ -5,6 +5,7 @@ const { spawn } = require('child_process');
 const axios = require('axios');
 const FormData = require('form-data');
 const pLimit = require('p-limit');
+const ffmpeg = require('ffmpeg-static');
 
 const CONCURRENCY = 2;
 const REQUEST_TIMEOUT = 60000;
@@ -47,8 +48,9 @@ async function retry(fn, attempts = 3, delay = 1000) {
 }
 
 async function runCommand(command, args) {
+  const cmd = command === 'ffmpeg' ? ffmpeg : command;
   return new Promise((resolve, reject) => {
-    const child = spawn(command, args);
+    const child = spawn(cmd, args);
 
     child.stdout.on('data', data => process.stdout.write(data));
     child.stderr.on('data', data => process.stderr.write(data));

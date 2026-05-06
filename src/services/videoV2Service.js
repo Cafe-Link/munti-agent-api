@@ -8,6 +8,7 @@ const pLimit = require('p-limit');
 const { GoogleAuth } = require('google-auth-library');
 const { VertexAI } = require('@google-cloud/vertexai');
 const crypto = require('crypto');
+const ffmpeg = require('ffmpeg-static');
 
 const {
   GOOGLE_CLOUD_PROJECT,
@@ -71,8 +72,9 @@ async function retry(fn, attempts = 3, delay = 1000) {
 }
 
 async function runCommand(command, args) {
+  const cmd = command === 'ffmpeg' ? ffmpeg : command;
   return new Promise((resolve, reject) => {
-    const child = spawn(command, args, { stdio: 'ignore' });
+    const child = spawn(cmd, args, { stdio: 'ignore' });
     child.on('close', (code) => {
       if (code === 0) resolve();
       else reject(new Error(`${command} exited with code ${code}`));
@@ -185,7 +187,7 @@ class VideoV2Service {
     await videoV2VectorStore.updateSession(sessionId, { status: 'extracting_frames' });
 
     try {
-      await runCommand('ffmpeg', ['-i', localVideoPath, '-vf', 'fps=1', framePattern]);
+      await runCommand(ffmpeg, ['-i', localVideoPath, '-vf', 'fps=1', framePattern]);
     } catch (error) {
       console.error('[VideoV2Service] Frame extraction failed:', error);
       throw new Error('Failed to extract frames.');
