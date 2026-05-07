@@ -1,20 +1,28 @@
 const { processFile, getRagResponse, getCompanyRagResponse, getCompanyRagResponseV2, clearKnowledgeBase } = require('../services/ragAgent');
 const gcsService = require('../services/ingestion/gcsService');
+const sessionManager = require('../services/sessionManager');
 
 const handleUpload = async (req, res) => {
   const file = req.file;
   if (!file) return res.status(400).json({ error: 'No file uploaded' });
 
   try {
-    // 1. Upload to GCS
     const result = await gcsService.uploadFile(file);
 
-    // 2. Process file using GCS metadata and buffer
     const processResult = await processFile({
         ...file,
         gcsFileName: result.fileName,
         gcsUrl: result.url
-    });
+    }, req.authSessionId);
+
+    // Register Knowledge Oracle feature session if authenticated
+    if (req.authSessionId) {
+      await sessionManager.startFeatureSession(
+        req.authSessionId,
+        'knowledge_oracle',
+        req.authSessionId // Use authSessionId as moduleSessionId for RAG
+      );
+    }
 
     res.status(200).json(processResult);
   } catch (err) {
@@ -31,7 +39,7 @@ const handleRagChat = async (req, res) => {
   res.setHeader('Transfer-Encoding', 'chunked');
 
   try {
-    const result = await getRagResponse(message, history || []);
+    const result = await getRagResponse(message, history || [], req.authSessionId);
     for await (const chunk of result.stream) {
       const text = chunk.candidates?.[0]?.content?.parts?.[0]?.text;
       if (text) res.write(text);
@@ -99,7 +107,7 @@ const handleCompanyChatV2 = async (req, res) => {
 };
 
 const handleClearKnowledgeBase = (req, res) => {
-  const result = clearKnowledgeBase();
+  const result = clearKnowledgeBase(req.authSessionId);
   res.status(200).json(result);
 };
 

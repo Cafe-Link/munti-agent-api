@@ -1,36 +1,43 @@
-const { Pool } = require('pg');
-const { DB } = require('../config/constants');
+const jwt = require('jsonwebtoken');
+const { JWT_SECRET } = require('../config/constants');
 
-const pool = new Pool({
-  host: DB.host,
-  user: DB.user,
-  password: DB.password,
-  database: DB.database,
-  port: DB.port,
-  ssl: { rejectUnauthorized: false }
-});
+const isAuthenticated = async (req, res, next) => {
+  const token = req.cookies.accessToken;
 
-const isAdmin = async (req, res, next) => {
-  const pin = req.headers['x-admin-pin'];
-
-  if (!pin) {
-    return res.status(401).json({ error: 'Unauthorized: Admin PIN required' });
+  if (!token) {
+    return res.status(401).json({ error: 'Unauthorized: Session required' });
   }
 
   try {
-    const schema = DB.schema.toLowerCase();
-    const query = `SELECT role FROM ${schema}.user_details WHERE pin = $1`;
-    const result = await pool.query(query, [pin]);
-
-    if (result.rows.length === 0 || result.rows[0].role !== 'admin') {
-      return res.status(403).json({ error: 'Forbidden: Admin access required' });
-    }
+    const decoded = jwt.verify(token, JWT_SECRET);
+    
+    req.user = {
+      id: decoded.userId,
+      sessionId: decoded.sessionId,
+      role: decoded.role
+    };
+    
+    req.authSessionId = decoded.sessionId;
 
     next();
   } catch (err) {
-    console.error('Admin Middleware Error:', err);
-    res.status(500).json({ error: 'Internal server error during authentication' });
+    if (err.name === 'TokenExpiredError') {
+      return res.status(401).json({ error: 'Token expired', code: 'TOKEN_EXPIRED' });
+    }
+    console.error('Auth Middleware Error:', err.message);
+    res.status(401).json({ error: 'Unauthorized: Invalid token' });
   }
 };
 
-module.exports = { isAdmin };
+const isAdmin = [
+  isAuthenticated,
+  (req, res, next) => {
+    if (req.user && req.user.role === 'admin') {
+      next();
+    } else {
+      res.status(403).json({ error: 'Forbidden: Admin access required' });
+    }
+  }
+];
+
+module.exports = { isAuthenticated, isAdmin };

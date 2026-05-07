@@ -3,6 +3,7 @@ const router = express.Router();
 const multer = require('multer');
 const path = require('path');
 const videoV2Controller = require('../controllers/videoV2Controller');
+const { isAuthenticated } = require('../middlewares/authMiddleware');
 
 // Use memory storage for cloud uploads
 const storage = multer.memoryStorage();
@@ -35,6 +36,9 @@ const imageUpload = multer({
     cb(new Error('Only images are allowed for visual search!'));
   }
 });
+
+// Apply authentication to all V2 routes
+router.use(isAuthenticated);
 
 // API 1: CREATE SESSION
 router.post('/session', videoV2Controller.createSession);
