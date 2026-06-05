@@ -1,6 +1,6 @@
-console.log("Starting Weather Agent Entry Point...");
+console.log("Starting Multi agent Agent Entry Point...");
 /**
- * Entry point for the Weather Agent Server
+ * Entry point for the Multi agent Agent Server
  * Points to the production-ready source structure
  */
 try {
