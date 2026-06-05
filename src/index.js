@@ -2,6 +2,7 @@ const path = require('path');
 const express = require('express');
 const cors = require('cors');
 const morgan = require('morgan');
+const cookieParser = require('cookie-parser');
 const { PORT } = require('./config/constants');
 const weatherRoutes = require('./routes/weatherRoutes');
 const weatherV2Routes = require('./routes/weatherV2Routes');
@@ -18,7 +19,11 @@ const app = express();
 const keepAlive = setInterval(() => {}, 1000 * 60 * 60);
 
 // Middlewares
-app.use(cors());
+app.use(cors({
+  origin: true, // In production, specify the exact origin(s)
+  credentials: true
+}));
+app.use(cookieParser());
 app.use(express.json());
 // Detailed logging format
 app.use(morgan(':method :url :status :res[content-length] - :response-time ms'));
@@ -76,5 +81,3 @@ server.on('error', (e) => {
   console.error("SERVER LISTEN ERROR:", e);
   process.exit(1);
 });
-
-
