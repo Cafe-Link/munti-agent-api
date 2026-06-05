@@ -51,17 +51,18 @@ async function getQueryEmbedding(text) {
     }
   });
 
-  
   return response.data.predictions[0].embeddings.values;
 }
 
-// In-memory knowledge base for temporary uploads
-let temporaryKnowledgeBase = [];
+// In-memory knowledge base, keyed by authSessionId
+let sessionKnowledgeBases = {};
 
 /**
- * Normalizes all extracted data into a searchable knowledge base.
+ * Normalizes all extracted data into a searchable knowledge base for a specific session.
  */
-async function processFile(file) {
+async function processFile(file, sessionId) {
+  if (!sessionId) throw new Error('Session ID required for file processing');
+
   let content = '';
   const mime = file.mimetype || '';
   const originalName = (file.originalname || '').toLowerCase();
@@ -100,7 +101,11 @@ async function processFile(file) {
       content = `[Document: ${originalName}]\n${readText()}`;
     }
 
-    temporaryKnowledgeBase.push(content);
+    if (!sessionKnowledgeBases[sessionId]) {
+      sessionKnowledgeBases[sessionId] = [];
+    }
+    sessionKnowledgeBases[sessionId].push(content);
+    
     return { success: true };
   } catch (err) {
     console.error(`[RagAgent] Error processing ${originalName}:`, err);
@@ -108,9 +113,11 @@ async function processFile(file) {
   }
 }
 
-async function getRagResponse(message, history = []) {
-  const sessionContext = temporaryKnowledgeBase.join('\n\n---\n\n');
-  if (!sessionContext) throw new Error('The knowledge base is empty.');
+async function getRagResponse(message, history = [], sessionId) {
+  const kb = sessionKnowledgeBases[sessionId] || [];
+  const sessionContext = kb.join('\n\n---\n\n');
+  
+  if (!sessionContext) throw new Error('The knowledge base is empty for this session.');
 
   const contents = history.map(h => ({
     role: h.role === 'user' ? 'user' : 'model',
@@ -126,7 +133,6 @@ async function getRagResponse(message, history = []) {
 async function getCompanyRagResponse(message, history = [], tableName = null) {
   let searchMessage = message;
   
-  // 1. Query Re-writing with Error Handling
   if (history.length > 0) {
     try {
         const historySummary = history.map(h => `${h.role}: ${h.content}`).join('\n');
@@ -148,19 +154,16 @@ async function getCompanyRagResponse(message, history = [], tableName = null) {
             console.log(`[RAG] Query rewritten to: "${searchMessage}"`);
         }
     } catch (err) {
-        console.warn("[RAG] Query rewrite failed, using original message:", err.message);
+        console.warn("[RAG] Query rewrite failed:", err.message);
     }
   }
   
-  // 2. Semantic Search
   const queryVector = await getQueryEmbedding(searchMessage);
   const relevantChunks = await vectorStoreService.semanticSearch(queryVector, tableName);
-  
-  if (!relevantChunks.length) throw new Error('I searched our archives but couldn\'t find any documents matching your request.');
+  if (!relevantChunks.length) throw new Error('No matching documents found.');
 
   const context = relevantChunks.map(c => `[Source: ${c.document_name}] ${c.content}`).join('\n\n');
   
-  // 3. Conversational Response Generation
   const contents = history.map(h => ({
     role: h.role === 'user' ? 'user' : 'model',
     parts: [{ text: h.content }]
@@ -193,7 +196,6 @@ GUIDELINES:
 async function getCompanyRagResponseV2(message, history = [], tableName = null) {
   let searchMessage = message;
   
-  // 1. Query Re-writing
   if (history.length > 0) {
     try {
         const historySummary = history.map(h => `${h.role}: ${h.content}`).join('\n');
@@ -210,24 +212,20 @@ async function getCompanyRagResponseV2(message, history = [], tableName = null) 
     }
   }
   
-  // 2. Vector Search (Vertex AI Matching Engine)
   const queryVector = await getQueryEmbedding(searchMessage);
-  console.log('[RAG V2] Query embedding generated, performing vector search...', queryVector);
   const neighbors = await vertexVectorSearchService.findNeighbors(queryVector);
   
   if (!neighbors || neighbors.length === 0) {
-    throw new Error('I searched our high-performance archives but couldn\'t find any matching documents.');
+    throw new Error('No matching documents found in high-performance index.');
   }
 
-  // 3. Retrieve Content from Database
   const neighborIds = neighbors.map(n => n.datapoint.datapointId);
   const relevantChunks = await vectorStoreService.getChunksByIds(neighborIds, tableName);
   
-  if (!relevantChunks.length) throw new Error('I found matches in the index, but the corresponding documents seem to be missing from the database.');
+  if (!relevantChunks.length) throw new Error('Matches found in index but content missing in DB.');
 
   const context = relevantChunks.map(c => `[Source: ${c.document_name}] ${c.content}`).join('\n\n');
   
-  // 4. Response Generation
   const contents = history.map(h => ({
     role: h.role === 'user' ? 'user' : 'model',
     parts: [{ text: h.content }]
@@ -248,9 +246,12 @@ GUIDELINES:
   return await model.generateContentStream({ contents });
 }
 
-function clearKnowledgeBase() {
-  temporaryKnowledgeBase = [];
-  return { message: 'Cleared' };
+function clearKnowledgeBase(sessionId) {
+  if (sessionId) {
+    delete sessionKnowledgeBases[sessionId];
+    return { message: `Cleared knowledge base for session ${sessionId}` };
+  }
+  return { message: 'No session ID provided' };
 }
 
 module.exports = { 

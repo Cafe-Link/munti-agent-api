@@ -1,8 +1,19 @@
 const videoV2Service = require('../services/videoV2Service');
+const sessionManager = require('../services/sessionManager');
 
 exports.createSession = async (req, res) => {
   try {
     const result = await videoV2Service.createSession();
+    
+    // Link to main auth session
+    if (req.authSessionId) {
+      await sessionManager.startFeatureSession(
+        req.authSessionId, 
+        'video_oracle_v2', 
+        result.sessionId
+      );
+    }
+    
     res.status(200).json(result);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -105,6 +116,10 @@ exports.deleteSession = async (req, res) => {
   try {
     const { sessionId } = req.params;
     const result = await videoV2Service.deleteSession(sessionId);
+    
+    // Close in feature sessions tracker
+    await sessionManager.endFeatureSession(sessionId);
+    
     res.status(200).json(result);
   } catch (error) {
     res.status(500).json({ error: error.message });
