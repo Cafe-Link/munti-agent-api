@@ -19,23 +19,23 @@ graph TD
     end
     
     subgraph "API Routes"
-        Auth --> Routes[Routes: /auth, /rag, /weather, /video, /admin]
+        Auth --> RTS[Routes: /auth, /rag, /weather, /video, /admin]
     end
     
     subgraph "Controllers"
-        Routes --> Controllers[Controllers: authController, ragController, etc.]
+        RTS --> CTRL[Controllers: authController, ragController, etc.]
     end
     
     subgraph "Service Layer"
-        Controllers --> Services[Services: ragAgent, weatherAgent, videoService]
-        Services --> Cache[(Redis Cache)]
-        Services --> Storage[GCS / Local FS]
+        CTRL --> SRVC[Services: ragAgent, weatherAgent, videoService]
+        SRVC --> Cache[(Redis Cache)]
+        SRVC --> Storage[GCS / Local FS]
     end
     
     subgraph "Data & AI Providers"
-        Services --> Gemini[Google Gemini / Vertex AI]
-        Services --> DB[(Supabase / PostgreSQL)]
-        Services --> Vector[Vector Search]
+        SRVC --> Gemini[Google Gemini / Vertex AI]
+        SRVC --> DB[(Supabase / PostgreSQL)]
+        SRVC --> Vector[Vector Search]
     end
 ```
 
