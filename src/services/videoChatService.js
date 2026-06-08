@@ -140,11 +140,11 @@ class VideoChatService {
         - Use a helpful, professional tone.
       `;
 
-      const result = await model.generateContent(prompt);
-      const answer = result.response.candidates[0].content.parts[0].text;
-
+      // Use streaming response
+      const streamingResp = await model.generateContentStream(prompt);
+      
       return {
-        response: answer,
+        stream: streamingResp,
         matches: matches.map(m => ({
           timestamp: m.timestamp,
           caption: m.caption,
