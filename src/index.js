@@ -12,6 +12,7 @@ const authRoutes = require('./routes/authRoutes');
 const videoRoutes = require('./routes/videoRoutes');
 const videoV2Routes = require('./routes/videoV2Routes');
 const adminRoutes = require('./routes/adminRoutes');
+const constants = require('./config/constants');
 
 const app = express();
 
@@ -20,7 +21,7 @@ const keepAlive = setInterval(() => {}, 1000 * 60 * 60);
 
 // Middlewares
 app.use(cors({
-  origin: true, // In production, specify the exact origin(s)
+  origin: constants.CORS_ORIGIN,
   credentials: true
 }));
 app.use(cookieParser());
