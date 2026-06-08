@@ -18,7 +18,11 @@ module.exports = {
   GEMINI_MODEL: process.env.GEMINI_MODEL || 'gemini-2.5-flash',
   GOOGLE_CLOUD_PROJECT: process.env.GOOGLE_CLOUD_PROJECT,
   EMBEDDING_MODEL: process.env.EMBEDDING_MODEL || 'gemini-embedding-001',
-  CORS_ORIGIN: process.env.CORS_ORIGIN,
+  CORS_ORIGIN: process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',') : [
+    'http://localhost:5173', 
+    'http://127.0.0.1:5173', 
+    'https://agentic-dashboard-ai.netlify.app'
+  ],
 
   // Authentication Settings
   JWT_SECRET: sanitizeEnv(process.env.JWT_SECRET, 'dev-access-secret-key-12345'),

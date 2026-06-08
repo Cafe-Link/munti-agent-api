@@ -47,15 +47,15 @@ const login = async (req, res) => {
     // Set Cookies
     res.cookie('accessToken', accessToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
+      secure: true,
+      sameSite: 'none',
       maxAge: 15 * 60 * 1000 // 15 mins
     });
 
     res.cookie('refreshToken', refreshToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
+      secure: true,
+      sameSite: 'none',
       maxAge: REFRESH_TOKEN_EXPIRY_MINUTES * 60 * 1000 // Now 30 mins
     });
 
@@ -92,15 +92,15 @@ const refresh = async (req, res) => {
 
     res.cookie('accessToken', accessToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
+      secure: true,
+      sameSite: 'none',
       maxAge: 15 * 60 * 1000
     });
 
     res.cookie('refreshToken', newRefreshToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
+      secure: true,
+      sameSite: 'none',
       maxAge: REFRESH_TOKEN_EXPIRY_MINUTES * 60 * 1000
     });
 
