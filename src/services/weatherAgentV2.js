@@ -1,14 +1,7 @@
-const { VertexAI } = require('@google-cloud/vertexai');
+const { GoogleGenAI } = require('@google/genai');
 const { GOOGLE_CLOUD_PROJECT, GEMINI_MODEL } = require('../config/constants');
 
-const vertex_ai = new VertexAI({
-  project: GOOGLE_CLOUD_PROJECT,
-  location: 'us-central1',
-});
-
-const model = vertex_ai.getGenerativeModel({
-  model: GEMINI_MODEL,
-});
+const ai = new GoogleGenAI({ vertexai: { project: GOOGLE_CLOUD_PROJECT, location: 'us-central1' } });
 
 async function getWeatherResponseV2(query) {
   const prompt = `
@@ -21,8 +14,9 @@ Task:
 User input: ${query}
 `;
 
-  const result = await model.generateContentStream({
-    contents: [{ role: 'user', parts: [{ text: prompt }] }],
+  const result = await ai.models.generateContentStream({
+    model: GEMINI_MODEL,
+    contents: prompt
   });
 
   return result;

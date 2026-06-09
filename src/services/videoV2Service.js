@@ -6,7 +6,7 @@ const Tesseract = require('tesseract.js');
 const axios = require('axios');
 const pLimit = require('p-limit');
 const { GoogleAuth } = require('google-auth-library');
-const { VertexAI } = require('@google-cloud/vertexai');
+const { GoogleGenAI } = require('@google/genai');
 const crypto = require('crypto');
 const ffmpeg = require('ffmpeg-static');
 
@@ -21,14 +21,7 @@ const videoV2VectorStore = require('./videoV2VectorStore');
 const CONCURRENCY = 3;
 const REQUEST_TIMEOUT = 30000;
 
-const vertexAI = new VertexAI({
-  project: GOOGLE_CLOUD_PROJECT,
-  location: 'us-central1',
-});
-
-const model = vertexAI.getGenerativeModel({
-  model: GEMINI_MODEL,
-});
+const ai = new GoogleGenAI({ vertexai: { project: GOOGLE_CLOUD_PROJECT, location: 'us-central1' } });
 
 const auth = new GoogleAuth({
   scopes: 'https://www.googleapis.com/auth/cloud-platform',
@@ -50,10 +43,6 @@ async function getAccessToken() {
     expiresAt: Date.now() + 50 * 60 * 1000,
   };
   return tokenCache.token;
-}
-
-function extractGeminiText(result) {
-  return (result?.response?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || '');
 }
 
 async function retry(fn, attempts = 3, delay = 1000) {
@@ -223,17 +212,15 @@ class VideoV2Service {
     try {
       const buffer = await fs.readFile(audioPath);
       const result = await retry(() =>
-        model.generateContent({
-          contents: [{
-            role: 'user',
-            parts: [
-              { inlineData: { data: buffer.toString('base64'), mimeType: 'audio/mp3' } },
-              { text: 'Transcribe this audio accurately.' },
-            ],
-          }],
+        ai.models.generateContent({
+          model: GEMINI_MODEL,
+          contents: [
+            { inlineData: { data: buffer.toString('base64'), mimeType: 'audio/mp3' } },
+            'Transcribe this audio accurately.',
+          ],
         })
       );
-      transcript = extractGeminiText(result);
+      transcript = result.text || 'No transcript available.';
     } catch (error) {
       console.error('[VideoV2Service] Transcription failed:', error);
     }
@@ -271,17 +258,15 @@ class VideoV2Service {
 
             const buffer = await fs.readFile(framePath);
             const captionResult = await retry(() =>
-              model.generateContent({
-                contents: [{
-                  role: 'user',
-                  parts: [
-                    { inlineData: { data: buffer.toString('base64'), mimeType: 'image/jpeg' } },
-                    { text: 'Describe people, objects, actions, colors and scene in one sentence.' },
-                  ],
-                }],
+              ai.models.generateContent({
+                model: GEMINI_MODEL,
+                contents: [
+                  { inlineData: { data: buffer.toString('base64'), mimeType: 'image/jpeg' } },
+                  'Describe people, objects, actions, colors and scene in one sentence.',
+                ]
               })
             );
-            const caption = extractGeminiText(captionResult) || 'No caption.';
+            const caption = captionResult.text || 'No caption.';
 
             const [visual, textual] = await Promise.all([
               retry(() => getMultimodalEmbedding({ imagePath: framePath })),
@@ -378,12 +363,15 @@ Question: ${message}
 Answer grounded in the context. Include timestamp references (e.g. at 5s) if possible.
 `;
 
-    const chatSession = model.startChat({
-      history: [{ role: 'user', parts: [{ text: prompt }] }]
+    const chatSession = ai.chats.create({
+      model: GEMINI_MODEL,
+      config: {
+        systemInstruction: prompt
+      }
     });
 
-    const result = await retry(() => chatSession.sendMessage(message));
-    const answer = result.response.candidates[0].content.parts[0].text;
+    const result = await retry(() => chatSession.sendMessage({ message }));
+    const answer = result.text;
 
     return {
       answer,
@@ -427,12 +415,15 @@ ${session.transcript || 'None available.'}
 Answer the user's question grounded ONLY in this context. Include the timestamps (e.g. at 5s) of the most likely matches.
 `;
 
-    const chatSession = model.startChat({
-      history: [{ role: 'user', parts: [{ text: prompt }] }]
+    const chatSession = ai.chats.create({
+      model: GEMINI_MODEL,
+      config: {
+        systemInstruction: prompt
+      }
     });
 
-    const result = await retry(() => chatSession.sendMessage(prompt));
-    const answer = result.response.candidates[0].content.parts[0].text;
+    const result = await retry(() => chatSession.sendMessage({ message: prompt }));
+    const answer = result.text;
 
     return {
       answer,

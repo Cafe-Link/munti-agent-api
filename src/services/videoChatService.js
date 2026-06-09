@@ -2,7 +2,7 @@ const fs = require('fs/promises');
 const path = require('path');
 const axios = require('axios');
 const { GoogleAuth } = require('google-auth-library');
-const { VertexAI } = require('@google-cloud/vertexai');
+const { GoogleGenAI } = require('@google/genai');
 
 const {
   GOOGLE_CLOUD_PROJECT,
@@ -14,14 +14,7 @@ const REQUEST_TIMEOUT = 30000;
 /* ---------------------------------------------------
    Vertex AI Setup
 --------------------------------------------------- */
-const vertexAI = new VertexAI({
-  project: GOOGLE_CLOUD_PROJECT,
-  location: 'us-central1',
-});
-
-const model = vertexAI.getGenerativeModel({
-  model: GEMINI_MODEL,
-});
+const ai = new GoogleGenAI({ vertexai: { project: GOOGLE_CLOUD_PROJECT, location: 'us-central1' } });
 
 const auth = new GoogleAuth({
   scopes: 'https://www.googleapis.com/auth/cloud-platform',
@@ -141,7 +134,10 @@ class VideoChatService {
       `;
 
       // Use streaming response
-      const streamingResp = await model.generateContentStream(prompt);
+      const streamingResp = await ai.models.generateContentStream({
+        model: GEMINI_MODEL,
+        contents: prompt
+      });
       
       return {
         stream: streamingResp,

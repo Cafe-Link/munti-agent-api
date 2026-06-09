@@ -3,21 +3,14 @@ const pdfParse = typeof pdfParseModule === 'function' ? pdfParseModule : pdfPars
 const csv = require('csvtojson');
 const XLSX = require('xlsx');
 const Tesseract = require('tesseract.js');
-const { VertexAI } = require('@google-cloud/vertexai');
+const { GoogleGenAI } = require('@google/genai');
 const axios = require('axios');
 const { GoogleAuth } = require('google-auth-library');
 const { GOOGLE_CLOUD_PROJECT, DB, GEMINI_MODEL, EMBEDDING_MODEL } = require('../config/constants');
 const vectorStoreService = require('./ingestion/vectorStoreService');
 const vertexVectorSearchService = require('./vertexVectorSearchService');
 
-const vertex_ai = new VertexAI({
-  project: GOOGLE_CLOUD_PROJECT,
-  location: 'us-central1',
-});
-
-const model = vertex_ai.getGenerativeModel({
-  model: GEMINI_MODEL,
-});
+const ai = new GoogleGenAI({ vertexai: { project: GOOGLE_CLOUD_PROJECT, location: 'us-central1' } });
 
 const auth = new GoogleAuth({
   scopes: 'https://www.googleapis.com/auth/cloud-platform',
@@ -127,7 +120,10 @@ async function getRagResponse(message, history = [], sessionId) {
   const systemPrompt = `You are a RAG assistant. Use ONLY this session context to answer: ${sessionContext}`;
   contents.push({ role: 'user', parts: [{ text: `${systemPrompt}\n\nQUESTION: ${message}` }] });
 
-  return await model.generateContentStream({ contents });
+  return await ai.models.generateContentStream({ 
+    model: GEMINI_MODEL,
+    contents 
+  });
 }
 
 async function getCompanyRagResponse(message, history = [], tableName = null) {
@@ -145,9 +141,12 @@ async function getCompanyRagResponse(message, history = [], tableName = null) {
         
         Standalone Query (Be specific, do not explain, just return the query):`;
         
-        const rewriteResult = await model.generateContent(rewritePrompt);
+        const rewriteResult = await ai.models.generateContent({
+            model: GEMINI_MODEL,
+            contents: rewritePrompt
+        });
         // Robust text extraction from Vertex AI response
-        const rewrittenText = rewriteResult.response.candidates?.[0]?.content?.parts?.[0]?.text;
+        const rewrittenText = rewriteResult.text;
         
         if (rewrittenText) {
             searchMessage = rewrittenText.trim();
@@ -190,7 +189,10 @@ GUIDELINES:
 
   contents.push({ role: 'user', parts: [{ text: `${systemPrompt}\n\nUSER QUESTION: ${message}` }] });
 
-  return await model.generateContentStream({ contents });
+  return await ai.models.generateContentStream({ 
+    model: GEMINI_MODEL,
+    contents 
+  });
 }
 
 async function getCompanyRagResponseV2(message, history = [], tableName = null) {
@@ -204,8 +206,11 @@ async function getCompanyRagResponseV2(message, history = [], tableName = null) 
         Follow-up: ${message}
         Standalone Query:`;
         
-        const rewriteResult = await model.generateContent(rewritePrompt);
-        const rewrittenText = rewriteResult.response.candidates?.[0]?.content?.parts?.[0]?.text;
+        const rewriteResult = await ai.models.generateContent({
+            model: GEMINI_MODEL,
+            contents: rewritePrompt
+        });
+        const rewrittenText = rewriteResult.text;
         if (rewrittenText) searchMessage = rewrittenText.trim();
     } catch (err) {
         console.warn("[RAG V2] Query rewrite failed:", err.message);
@@ -243,7 +248,10 @@ GUIDELINES:
 
   contents.push({ role: 'user', parts: [{ text: `${systemPrompt}\n\nUSER QUESTION: ${message}` }] });
 
-  return await model.generateContentStream({ contents });
+  return await ai.models.generateContentStream({ 
+    model: GEMINI_MODEL,
+    contents 
+  });
 }
 
 function clearKnowledgeBase(sessionId) {

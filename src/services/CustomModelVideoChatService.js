@@ -4,18 +4,11 @@ const path = require('path');
 const axios = require('axios');
 const FormData = require('form-data');
 
-const { VertexAI } = require('@google-cloud/vertexai');
+const { GoogleGenAI } = require('@google/genai');
 const { GOOGLE_CLOUD_PROJECT, GEMINI_MODEL, AI_API_BASE } = require('../config/constants');
 const vertexVectorSearchService = require('./vertexVectorSearchService');
 
-const vertexAI = new VertexAI({
-  project: GOOGLE_CLOUD_PROJECT,
-  location: 'us-central1',
-});
-
-const model = vertexAI.getGenerativeModel({
-  model: GEMINI_MODEL,
-});
+const ai = new GoogleGenAI({ vertexai: { project: GOOGLE_CLOUD_PROJECT, location: 'us-central1' } });
 
 const REQUEST_TIMEOUT = 60000;
 
@@ -26,13 +19,6 @@ const REQUEST_TIMEOUT = 60000;
 */
 const EMBED_TEXT_API = `${AI_API_BASE}/embed-text`;
 const EMBED_IMAGE_API = `${AI_API_BASE}/embed-image`;
-
-function extractText(result) {
-  return (
-    result?.response?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ||
-    ''
-  );
-}
 
 /*
 |--------------------------------------------------------------------------
@@ -247,17 +233,13 @@ FINAL RESPONSE:
         '[STEP 5/5] Generating final answer with Gemini...'
       );
 
-      const result = await model.generateContent({
-        contents: [
-          {
-            role: 'user',
-            parts: [{ text: prompt }],
-          },
-        ],
+      const result = await ai.models.generateContent({
+        model: GEMINI_MODEL,
+        contents: prompt
       });
 
       const answer =
-        extractText(result) ||
+        result.text ||
         'I could not generate a useful answer.';
 
       console.log('[DONE] Response generated.');

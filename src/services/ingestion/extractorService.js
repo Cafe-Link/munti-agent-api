@@ -1,15 +1,11 @@
-const { VertexAI } = require('@google-cloud/vertexai');
+const { GoogleGenAI } = require('@google/genai');
 const csv = require('csvtojson');
 const XLSX = require('xlsx');
 const { GOOGLE_CLOUD_PROJECT, GEMINI_MODEL } = require('../../config/constants');
 
 class ExtractorService {
   constructor() {
-    this.vertexAI = new VertexAI({ project: GOOGLE_CLOUD_PROJECT, location: 'us-central1' });
-    this.model = this.vertexAI.getGenerativeModel({
-      model: GEMINI_MODEL,
-      generationConfig: { responseMimeType: 'application/json' }
-    });
+    this.ai = new GoogleGenAI({ vertexai: { project: GOOGLE_CLOUD_PROJECT, location: 'us-central1' } });
   }
 
   /**
@@ -45,14 +41,16 @@ class ExtractorService {
       const prompt = `Analyze this document. Extract all text into 'text_content' and tables into 'tables' (markdown). 
       Return JSON: { "text_content": "...", "tables": [{ "markdown": "..." }] }`;
 
-      const result = await this.model.generateContent({
-        contents: [{ 
-          role: 'user', 
-          parts: [{ inlineData: { data, mimeType: mime } }, { text: prompt }] 
-        }],
+      const result = await this.ai.models.generateContent({
+        model: GEMINI_MODEL,
+        contents: [
+          { inlineData: { data, mimeType: mime } },
+          prompt
+        ],
+        config: { responseMimeType: 'application/json' }
       });
 
-      const responseText = result.response.candidates[0].content.parts[0].text;
+      const responseText = result.text;
       const parsed = JSON.parse(responseText);
       
       let text = parsed.text_content || "";

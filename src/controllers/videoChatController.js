@@ -36,8 +36,8 @@ const chat = async (req, res) => {
       // We'll stream the AI response text first.
       
       try {
-        for await (const chunk of result.stream.stream) {
-          const chunkText = chunk.candidates[0]?.content?.parts[0]?.text || '';
+        for await (const chunk of result.stream) {
+          const chunkText = chunk.text || '';
           if (chunkText) {
             res.write(chunkText);
           }
