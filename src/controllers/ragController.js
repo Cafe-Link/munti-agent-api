@@ -40,8 +40,8 @@ const handleRagChat = async (req, res) => {
 
   try {
     const result = await getRagResponse(message, history || [], req.authSessionId);
-    for await (const chunk of result.stream) {
-      const text = chunk.candidates?.[0]?.content?.parts?.[0]?.text;
+    for await (const chunk of result) {
+      const text = chunk.text;
       if (text) res.write(text);
     }
     res.end();
@@ -65,8 +65,8 @@ const handleCompanyChat = async (req, res) => {
 
   try {
     const result = await getCompanyRagResponse(message, history || [], tableName);
-    for await (const chunk of result.stream) {
-      const text = chunk.candidates?.[0]?.content?.parts?.[0]?.text;
+    for await (const chunk of result) {
+      const text = chunk.text;
       if (text) res.write(text);
     }
     res.end();
@@ -90,8 +90,8 @@ const handleCompanyChatV2 = async (req, res) => {
 
   try {
     const result = await getCompanyRagResponseV2(message, history || [], tableName);
-    for await (const chunk of result.stream) {
-      const text = chunk.candidates?.[0]?.content?.parts?.[0]?.text;
+    for await (const chunk of result) {
+      const text = chunk.text;
       if (text) res.write(text);
     }
     res.end();
