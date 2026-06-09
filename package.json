@@ -25,8 +25,8 @@
   "dependencies": {
     "@google-cloud/aiplatform": "^6.6.0",
     "@google-cloud/storage": "^7.19.0",
-    "@google-cloud/vertexai": "^1.12.0",
     "@google/adk": "^0.6.1",
+    "@google/genai": "^2.8.0",
     "@supabase/supabase-js": "^2.45.1",
     "agentmail": "^0.4.17",
     "axios": "^1.15.0",
@@ -42,6 +42,7 @@
     "multer": "^2.1.1",
     "pdf-parse": "^1.1.1",
     "pg": "^8.20.0",
+    "redis": "^6.0.0",
     "tesseract.js": "^7.0.0",
     "xlsx": "^0.18.5",
     "zod": "^4.3.6"

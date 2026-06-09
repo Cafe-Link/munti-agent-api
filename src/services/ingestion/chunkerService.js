@@ -1,13 +1,9 @@
-const { VertexAI } = require('@google-cloud/vertexai');
+const { GoogleGenAI } = require('@google/genai');
 const { GOOGLE_CLOUD_PROJECT, GEMINI_MODEL } = require('../../config/constants');
 
 class ChunkerService {
   constructor() {
-    this.vertexAI = new VertexAI({ project: GOOGLE_CLOUD_PROJECT, location: 'us-central1' });
-    this.model = this.vertexAI.getGenerativeModel({
-      model: GEMINI_MODEL,
-      generationConfig: { responseMimeType: 'application/json' }
-    });
+    this.ai = new GoogleGenAI({ vertexai: { project: GOOGLE_CLOUD_PROJECT, location: 'us-central1' } });
   }
 
   /**
@@ -32,11 +28,13 @@ class ChunkerService {
     `;
 
     try {
-      const result = await this.model.generateContent({
-        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+      const result = await this.ai.models.generateContent({
+        model: GEMINI_MODEL,
+        contents: prompt,
+        config: { responseMimeType: 'application/json' }
       });
 
-      const responseText = result.response.candidates[0].content.parts[0].text;
+      const responseText = result.text;
       const parsed = JSON.parse(responseText);
       
       return parsed.chunks || [];

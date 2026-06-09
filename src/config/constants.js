@@ -18,11 +18,12 @@ module.exports = {
   GEMINI_MODEL: process.env.GEMINI_MODEL || 'gemini-2.5-flash',
   GOOGLE_CLOUD_PROJECT: process.env.GOOGLE_CLOUD_PROJECT,
   EMBEDDING_MODEL: process.env.EMBEDDING_MODEL || 'gemini-embedding-001',
-  CORS_ORIGIN: process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',') : [
-    'http://localhost:5173', 
-    'http://127.0.0.1:5173', 
-    'https://agentic-dashboard-ai.netlify.app'
-  ],
+  CORS_ORIGIN: process.env.CORS_ORIGIN 
+    ? process.env.CORS_ORIGIN.replace(/[\[\]'"]/g, '').split(',').map(s => s.trim()) 
+    : [
+        'http://localhost:5173', 
+        'http://127.0.0.1:5173'
+      ],
 
   // Authentication Settings
   JWT_SECRET: sanitizeEnv(process.env.JWT_SECRET, 'dev-access-secret-key-12345'),
@@ -47,5 +48,11 @@ module.exports = {
     apiEndpoint: process.env.API_ENDPOINT,
     indexEndpoint: process.env.INDEX_ENDPOINT,
     deployedIndexId: process.env.DEPLOYED_INDEX_ID
+  },
+  REDIS: {
+    url: process.env.REDIS_URL || 'redis://localhost:6379',
+    host: process.env.REDIS_HOST || '127.0.0.1',
+    port: process.env.REDIS_PORT || 6379,
+    password: process.env.REDIS_PASSWORD || ''
   }
 };

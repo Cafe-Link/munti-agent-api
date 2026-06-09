@@ -13,15 +13,33 @@ const videoRoutes = require('./routes/videoRoutes');
 const videoV2Routes = require('./routes/videoV2Routes');
 const adminRoutes = require('./routes/adminRoutes');
 const constants = require('./config/constants');
+const { connectRedis } = require('./config/redis');
+const { config } = require('dotenv');
 
 const app = express();
+
+// Initialize Redis
+// connectRedis();
+
 
 // Keep process alive explicitly
 const keepAlive = setInterval(() => {}, 1000 * 60 * 60);
 
 // Middlewares
 app.use(cors({
-  origin: constants.CORS_ORIGIN,
+  origin: function (origin, callback) {
+    const allowedOrigins = constants.CORS_ORIGIN || [];
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      // Also allow localhost unconditionally for local dev
+      if (origin.startsWith('http://localhost') || origin.startsWith('http://127.0.0.1')) {
+         callback(null, true);
+      } else {
+         callback(new Error('Not allowed by CORS'));
+      }
+    }
+  },
   credentials: true
 }));
 app.use(cookieParser());
@@ -67,12 +85,17 @@ app.use((err, req, res, next) => {
 
 console.log(`Attempting to listen on port ${PORT}...`);
 
-const server = app.listen(PORT, () => {
+const server = app.listen(PORT, async () => {
+  const { redisClient } = require('./config/redis');
+  // Wait a small amount of time or just check status if connectRedis was called earlier
+  const redisStatus = redisClient.isOpen ? 'CONNECTED ✅' : 'DISCONNECTED ❌';
+  
   console.log(`
 ================================================
 🚀 Backend Server is ACTIVE
 📡 Port: ${PORT}
 🔗 Health Check: http://localhost:${PORT}/health
+📦 Redis Status: ${redisStatus}
 ================================================
 Logs will appear here...
 `);

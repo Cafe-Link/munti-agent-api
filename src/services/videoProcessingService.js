@@ -5,7 +5,7 @@ const Tesseract = require('tesseract.js');
 const axios = require('axios');
 const pLimit = require('p-limit');
 const { GoogleAuth } = require('google-auth-library');
-const { VertexAI } = require('@google-cloud/vertexai');
+const { GoogleGenAI } = require('@google/genai');
 const gcsService = require('./ingestion/gcsService');
 const ffmpeg = require('ffmpeg-static');
 
@@ -20,14 +20,7 @@ const REQUEST_TIMEOUT = 30000;
 /* ---------------------------------------------------
    Vertex AI Setup
 --------------------------------------------------- */
-const vertexAI = new VertexAI({
-  project: GOOGLE_CLOUD_PROJECT,
-  location: 'us-central1',
-});
-
-const model = vertexAI.getGenerativeModel({
-  model: GEMINI_MODEL,
-});
+const ai = new GoogleGenAI({ vertexai: { project: GOOGLE_CLOUD_PROJECT, location: 'us-central1' } });
 
 const auth = new GoogleAuth({
   scopes: 'https://www.googleapis.com/auth/cloud-platform',
@@ -55,12 +48,6 @@ async function getAccessToken() {
   };
 
   return tokenCache.token;
-}
-
-function extractGeminiText(result) {
-  return (
-    result?.response?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || ''
-  );
 }
 
 async function retry(fn, attempts = 3, delay = 1000) {
@@ -384,27 +371,21 @@ class VideoProcessingService {
       const buffer = await fs.readFile(audioPath);
 
       const result = await retry(() =>
-        model.generateContent({
+        ai.models.generateContent({
+          model: GEMINI_MODEL,
           contents: [
             {
-              role: 'user',
-              parts: [
-                {
-                  inlineData: {
-                    data: buffer.toString('base64'),
-                    mimeType: 'audio/mp3',
-                  },
-                },
-                {
-                  text: 'Transcribe this audio accurately.',
-                },
-              ],
+              inlineData: {
+                data: buffer.toString('base64'),
+                mimeType: 'audio/mp3',
+              },
             },
+            'Transcribe this audio accurately.',
           ],
         })
       );
 
-      return extractGeminiText(result);
+      return result.text || 'No transcript available.';
     } catch (error) {
       return 'No transcript available.';
     }
@@ -414,28 +395,22 @@ class VideoProcessingService {
     const buffer = await fs.readFile(framePath);
 
     const result = await retry(() =>
-      model.generateContent({
+      ai.models.generateContent({
+        model: GEMINI_MODEL,
         contents: [
           {
-            role: 'user',
-            parts: [
-              {
-                inlineData: {
-                  data: buffer.toString('base64'),
-                  mimeType: 'image/jpeg',
-                },
-              },
-              {
-                text: 'Describe people, objects, actions, colors and scene in one sentence.',
-              },
-            ],
+            inlineData: {
+              data: buffer.toString('base64'),
+              mimeType: 'image/jpeg',
+            },
           },
+          'Describe people, objects, actions, colors and scene in one sentence.',
         ],
       })
     );
 
     return (
-      extractGeminiText(result) ||
+      result.text ||
       'No caption available.'
     );
   }
