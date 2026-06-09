@@ -13,8 +13,8 @@ const handleChatV2 = async (req, res) => {
   try {
     const result = await getWeatherResponseV2(message);
 
-    for await (const chunk of result.stream) {
-      const text = chunk.candidates?.[0]?.content?.parts?.[0]?.text;
+    for await (const chunk of result) {
+      const text = chunk.text;
       if (text) {
         res.write(text);
       }
