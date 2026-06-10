@@ -85,7 +85,8 @@ exports.getProcessStatus = async (req, res) => {
 
 exports.askQuestion = async (req, res) => {
   try {
-    const { sessionId, message } = req.body;
+    const sessionId = req.body?.sessionId;
+    const message = req.body?.message;
     if (!sessionId || !message) {
       return res.status(400).json({ error: 'sessionId and message are required.' });
     }
@@ -98,7 +99,8 @@ exports.askQuestion = async (req, res) => {
 
 exports.analyzeImage = async (req, res) => {
   try {
-    const { sessionId, message } = req.body;
+    const sessionId = req.body?.sessionId;
+    const message = req.body?.message;
     if (!sessionId) {
       return res.status(400).json({ error: 'sessionId is required.' });
     }

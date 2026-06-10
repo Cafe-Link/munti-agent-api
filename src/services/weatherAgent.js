@@ -86,7 +86,7 @@ Once you have generated the report, ASK the user if they want this report sent t
 /**
  * Simplified runner that processes only the current input
  */
-const runWeatherQuest = async (input) => {
+const runWeatherQuest = async (input, history = [], audioFile = null) => {
   try {
     console.log(`[Service] Processing Input: "${input}"`);
     
@@ -99,8 +99,22 @@ const runWeatherQuest = async (input) => {
 
     const pluginManager = new PluginManager();
 
+    // In ADK, input can be an array of parts for multimodal
+    let contextInput = input;
+    if (audioFile) {
+        contextInput = [
+            { text: input },
+            {
+                inlineData: {
+                    mimeType: audioFile.mimetype,
+                    data: audioFile.buffer.toString("base64")
+                }
+            }
+        ];
+    }
+
     const context = new InvocationContext({
-      input: input,
+      input: contextInput,
       session: session,
       pluginManager: pluginManager
     });

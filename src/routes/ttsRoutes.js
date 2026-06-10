@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const multer = require('multer');
-const ingestionController = require('../controllers/ingestionController');
+const ttsController = require('../controllers/ttsController');
 const { isAuthenticated } = require('../middlewares/authMiddleware');
 
 const storage = multer.memoryStorage();
@@ -12,13 +12,13 @@ const upload = multer({
   }
 });
 
-// Secure ingestion routes
+// Secure all TTS routes
 router.use(isAuthenticated);
 
-// Use .any() to allow multiple files from a folder upload
-router.post('/upload-batch', upload.any(), ingestionController.handleIngestion);
+// Route to generate speech-friendly text
+router.post('/generate', ttsController.handleGenerateSpeechText);
 
-// New API to clear all documents in the uploaded-doc folder
-router.delete('/clear-uploads', ingestionController.handleClearUploadedDocs);
+// Route to transcribe audio
+router.post('/transcribe', upload.single('audio'), ttsController.handleTranscribeAudio);
 
 module.exports = router;

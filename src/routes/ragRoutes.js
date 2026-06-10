@@ -5,15 +5,20 @@ const ragController = require('../controllers/ragController');
 const { isAuthenticated } = require('../middlewares/authMiddleware');
 
 const storage = multer.memoryStorage();
-const upload = multer({ storage: storage });
+const upload = multer({ 
+  storage: storage,
+  limits: {
+    fileSize: 10 * 1024 * 1024 // 10MB limit
+  }
+});
 
 // Secure all RAG routes
 router.use(isAuthenticated);
 
 router.post('/upload', upload.single('file'), ragController.handleUpload);
-router.post('/chat', ragController.handleRagChat);
-router.post('/company-chat', ragController.handleCompanyChat);
-router.post('/company-chat-v2', ragController.handleCompanyChatV2);
+router.post('/chat', upload.single('audio'), ragController.handleRagChat);
+router.post('/company-chat', upload.single('audio'), ragController.handleCompanyChat);
+router.post('/company-chat-v2', upload.single('audio'), ragController.handleCompanyChatV2);
 router.post('/clear', ragController.handleClearKnowledgeBase);
 
 module.exports = router;

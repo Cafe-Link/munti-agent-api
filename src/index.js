@@ -12,6 +12,7 @@ const authRoutes = require('./routes/authRoutes');
 const videoRoutes = require('./routes/videoRoutes');
 const videoV2Routes = require('./routes/videoV2Routes');
 const adminRoutes = require('./routes/adminRoutes');
+const ttsRoutes = require('./routes/ttsRoutes');
 const constants = require('./config/constants');
 const { connectRedis } = require('./config/redis');
 const { config } = require('dotenv');
@@ -65,6 +66,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/video', videoRoutes);
 app.use('/api/video-oracle-v2', videoV2Routes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/tts', ttsRoutes);
 
 // Health check
 app.get('/health', (req, res) => {
@@ -79,6 +81,11 @@ app.get('/', (req, res) => {
 // Global Error Handler
 app.use((err, req, res, next) => {
   console.error("EXPRESS ERROR:", err.message);
+  
+  if (err.name === 'MulterError' && err.code === 'LIMIT_FILE_SIZE') {
+    return res.status(413).json({ status: 'error', message: 'File is too large. Maximum size is 10MB.' });
+  }
+
   console.error(err.stack);
   res.status(500).json({ status: 'error', message: 'Something broke!', error: err.message });
 });
