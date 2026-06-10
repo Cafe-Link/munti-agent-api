@@ -23,6 +23,36 @@ async function getAccessToken() {
 }
 
 /**
+ * Transcribes an audio file using the Gemini API.
+ */
+async function transcribeAudio(audioFile) {
+  try {
+    const result = await ai.models.generateContent({
+        model: GEMINI_MODEL,
+        contents: [
+            {
+                role: 'user',
+                parts: [
+                    { text: "Transcribe the following audio. Respond only with the transcribed text, without any additional commentary or preamble." },
+                    { inlineData: { mimeType: audioFile.mimetype, data: audioFile.buffer.toString("base64") } }
+                ]
+            }
+        ]
+    });
+    const transcribedText = result.text;
+    if (!transcribedText) {
+      throw new Error("Transcription result was empty.");
+    }
+    console.log(`[Audio Transcription]: "${transcribedText.trim()}"`);
+    return transcribedText.trim();
+  } catch (err) {
+    console.error("[Audio Transcription] Failed:", err);
+    throw new Error("Failed to transcribe audio file.");
+  }
+}
+
+
+/**
  * Generates embedding for a query.
  */
 async function getQueryEmbedding(text) {
@@ -106,7 +136,7 @@ async function processFile(file, sessionId) {
   }
 }
 
-async function getRagResponse(message, history = [], sessionId) {
+async function getRagResponse(message, history = [], sessionId, audioFile = null) {
   const kb = sessionKnowledgeBases[sessionId] || [];
   const sessionContext = kb.join('\n\n---\n\n');
   
@@ -118,7 +148,19 @@ async function getRagResponse(message, history = [], sessionId) {
   }));
 
   const systemPrompt = `You are a RAG assistant. Use ONLY this session context to answer: ${sessionContext}`;
-  contents.push({ role: 'user', parts: [{ text: `${systemPrompt}\n\nQUESTION: ${message}` }] });
+  
+  const userParts = [{ text: `${systemPrompt}\n\nQUESTION: ${message}` }];
+
+  if (audioFile) {
+    userParts.push({
+      inlineData: {
+        mimeType: audioFile.mimetype,
+        data: audioFile.buffer.toString("base64")
+      }
+    });
+  }
+
+  contents.push({ role: 'user', parts: userParts });
 
   return await ai.models.generateContentStream({ 
     model: GEMINI_MODEL,
@@ -126,7 +168,19 @@ async function getRagResponse(message, history = [], sessionId) {
   });
 }
 
-async function getCompanyRagResponse(message, history = [], tableName = null) {
+async function getCompanyRagResponse(message, history = [], tableName = null, audioFile = null) {
+  // If an audio file is provided, transcribe it first to get the actual user query.
+  if (audioFile) {
+    const transcribedText = await transcribeAudio(audioFile);
+    message = transcribedText; // Overwrite the generic message with the real one.
+
+    // Also update the history so the LLM has the correct conversational context.
+    const lastUserTurn = history.slice().reverse().find(h => h.role === 'user');
+    if (lastUserTurn) {
+      lastUserTurn.content = transcribedText;
+    }
+  }
+
   let searchMessage = message;
   
   if (history.length > 0) {
@@ -143,9 +197,8 @@ async function getCompanyRagResponse(message, history = [], tableName = null) {
         
         const rewriteResult = await ai.models.generateContent({
             model: GEMINI_MODEL,
-            contents: rewritePrompt
+            contents: [{ role: 'user', parts: [{ text: rewritePrompt }] }]
         });
-        // Robust text extraction from Vertex AI response
         const rewrittenText = rewriteResult.text;
         
         if (rewrittenText) {
@@ -187,7 +240,9 @@ GUIDELINES:
 6. FORMATTING: Use Markdown (tables/bullets) for clarity.
 `;
 
-  contents.push({ role: 'user', parts: [{ text: `${systemPrompt}\n\nUSER QUESTION: ${message}` }] });
+  const userParts = [{ text: `${systemPrompt}\n\nUSER QUESTION: ${message}` }];
+
+  contents.push({ role: 'user', parts: userParts });
 
   return await ai.models.generateContentStream({ 
     model: GEMINI_MODEL,
@@ -195,7 +250,19 @@ GUIDELINES:
   });
 }
 
-async function getCompanyRagResponseV2(message, history = [], tableName = null) {
+async function getCompanyRagResponseV2(message, history = [], tableName = null, audioFile = null) {
+  // If an audio file is provided, transcribe it first to get the actual user query.
+  if (audioFile) {
+    const transcribedText = await transcribeAudio(audioFile);
+    message = transcribedText; // Overwrite the generic message with the real one.
+
+    // Also update the history so the LLM has the correct conversational context.
+    const lastUserTurn = history.slice().reverse().find(h => h.role === 'user');
+    if (lastUserTurn) {
+      lastUserTurn.content = transcribedText;
+    }
+  }
+
   let searchMessage = message;
   
   if (history.length > 0) {
@@ -208,7 +275,7 @@ async function getCompanyRagResponseV2(message, history = [], tableName = null) 
         
         const rewriteResult = await ai.models.generateContent({
             model: GEMINI_MODEL,
-            contents: rewritePrompt
+            contents: [{ role: 'user', parts: [{ text: rewritePrompt }] }]
         });
         const rewrittenText = rewriteResult.text;
         if (rewrittenText) searchMessage = rewrittenText.trim();
@@ -246,7 +313,9 @@ GUIDELINES:
 - Stay grounded in the provided context.
 - Use Markdown for clarity.`;
 
-  contents.push({ role: 'user', parts: [{ text: `${systemPrompt}\n\nUSER QUESTION: ${message}` }] });
+  const userParts = [{ text: `${systemPrompt}\n\nUSER QUESTION: ${message}` }];
+
+  contents.push({ role: 'user', parts: userParts });
 
   return await ai.models.generateContentStream({ 
     model: GEMINI_MODEL,

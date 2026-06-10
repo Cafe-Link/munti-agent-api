@@ -32,14 +32,34 @@ const handleUpload = async (req, res) => {
 };
 
 const handleRagChat = async (req, res) => {
-  const { message, history } = req.body;
-  if (!message) return res.status(400).json({ error: 'Message is required' });
+  // Extract data. If sent as FormData (with audio), history is a stringified JSON.
+  let message = req.body.message;
+  let history = req.body.history;
+  
+  if (typeof history === 'string') {
+    try {
+      history = JSON.parse(history);
+    } catch (e) {
+      history = [];
+    }
+  }
+
+  // If there's an audio file but no message, set a default message.
+  const audioFile = req.file;
+  if (!message && !audioFile) {
+    return res.status(400).json({ error: 'Message or audio is required' });
+  }
+
+  // In audio-only mode, the message might be undefined from the form data, so give a default
+  if (!message && audioFile) {
+      message = "Answer the user's question from this audio recording:";
+  }
 
   res.setHeader('Content-Type', 'text/plain');
   res.setHeader('Transfer-Encoding', 'chunked');
 
   try {
-    const result = await getRagResponse(message, history || [], req.authSessionId);
+    const result = await getRagResponse(message, history || [], req.authSessionId, audioFile);
     for await (const chunk of result) {
       const text = chunk.text;
       if (text) res.write(text);
@@ -57,14 +77,32 @@ const handleRagChat = async (req, res) => {
 };
 
 const handleCompanyChat = async (req, res) => {
-  const { message, history, tableName } = req.body;
-  if (!message) return res.status(400).json({ error: 'Message is required' });
+  let message = req.body.message;
+  let history = req.body.history;
+  const tableName = req.body.tableName;
+  
+  if (typeof history === 'string') {
+    try {
+      history = JSON.parse(history);
+    } catch (e) {
+      history = [];
+    }
+  }
+
+  const audioFile = req.file;
+  if (!message && !audioFile) {
+    return res.status(400).json({ error: 'Message or audio is required' });
+  }
+
+  if (!message && audioFile) {
+      message = "Answer the user's question from this audio recording:";
+  }
 
   res.setHeader('Content-Type', 'text/plain');
   res.setHeader('Transfer-Encoding', 'chunked');
 
   try {
-    const result = await getCompanyRagResponse(message, history || [], tableName);
+    const result = await getCompanyRagResponse(message, history || [], tableName, audioFile);
     for await (const chunk of result) {
       const text = chunk.text;
       if (text) res.write(text);
@@ -82,14 +120,32 @@ const handleCompanyChat = async (req, res) => {
 };
 
 const handleCompanyChatV2 = async (req, res) => {
-  const { message, history, tableName } = req.body;
-  if (!message) return res.status(400).json({ error: 'Message is required' });
+  let message = req.body.message;
+  let history = req.body.history;
+  const tableName = req.body.tableName;
+  
+  if (typeof history === 'string') {
+    try {
+      history = JSON.parse(history);
+    } catch (e) {
+      history = [];
+    }
+  }
+
+  const audioFile = req.file;
+  if (!message && !audioFile) {
+    return res.status(400).json({ error: 'Message or audio is required' });
+  }
+
+  if (!message && audioFile) {
+      message = "Answer the user's question from this audio recording:";
+  }
 
   res.setHeader('Content-Type', 'text/plain');
   res.setHeader('Transfer-Encoding', 'chunked');
 
   try {
-    const result = await getCompanyRagResponseV2(message, history || [], tableName);
+    const result = await getCompanyRagResponseV2(message, history || [], tableName, audioFile);
     for await (const chunk of result) {
       const text = chunk.text;
       if (text) res.write(text);

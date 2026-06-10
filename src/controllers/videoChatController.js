@@ -4,7 +4,7 @@ const gcsService = require('../services/ingestion/gcsService');
 
 const chat = async (req, res) => {
   try {
-    const { text } = req.body;
+    const text = req.body?.text;
     let imageInfo = null;
 
     if (req.file) {
@@ -67,7 +67,7 @@ const chat = async (req, res) => {
 
 const customChat = async (req, res) => {
   try {
-    const { text } = req.body;
+    const text = req.body?.text;
     let imageInfo = null;
 
     if (req.file) {
