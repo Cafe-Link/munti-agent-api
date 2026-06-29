@@ -1,7 +1,7 @@
 const { GoogleGenAI } = require('@google/genai');
-const { GOOGLE_CLOUD_PROJECT, GEMINI_MODEL } = require('../config/constants');
+const { GOOGLE_CLOUD_PROJECT, GEMINI_MODEL, GOOGLE_CLOUD_LOCATION } = require('../config/constants');
 
-const ai = new GoogleGenAI({ vertexai: { project: GOOGLE_CLOUD_PROJECT, location: 'us-central1' } });
+const ai = new GoogleGenAI({ vertexai: { project: GOOGLE_CLOUD_PROJECT, location: GOOGLE_CLOUD_LOCATION } });
 
 async function getWeatherResponseV2(query) {
   const prompt = `

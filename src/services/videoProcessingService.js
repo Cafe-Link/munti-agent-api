@@ -12,6 +12,8 @@ const ffmpeg = require('ffmpeg-static');
 const {
   GOOGLE_CLOUD_PROJECT,
   GEMINI_MODEL,
+  GOOGLE_CLOUD_LOCATION,
+  getVertexPredictUrl,
 } = require('../config/constants');
 
 const CONCURRENCY = 3;
@@ -20,7 +22,7 @@ const REQUEST_TIMEOUT = 30000;
 /* ---------------------------------------------------
    Vertex AI Setup
 --------------------------------------------------- */
-const ai = new GoogleGenAI({ vertexai: { project: GOOGLE_CLOUD_PROJECT, location: 'us-central1' } });
+const ai = new GoogleGenAI({ vertexai: { project: GOOGLE_CLOUD_PROJECT, location: GOOGLE_CLOUD_LOCATION } });
 
 const auth = new GoogleAuth({
   scopes: 'https://www.googleapis.com/auth/cloud-platform',
@@ -87,7 +89,7 @@ async function runCommand(command, args) {
 async function getMultimodalEmbedding({ text = null, imagePath = null, imageBuffer = null }) {
   const token = await getAccessToken();
 
-  const url = `https://us-central1-aiplatform.googleapis.com/v1/projects/${GOOGLE_CLOUD_PROJECT}/locations/us-central1/publishers/google/models/multimodalembedding:predict`;
+  const url = getVertexPredictUrl('multimodalembedding');
 
   const instance = {};
 

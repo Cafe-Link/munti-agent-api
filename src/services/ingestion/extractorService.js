@@ -1,11 +1,11 @@
 const { GoogleGenAI } = require('@google/genai');
 const csv = require('csvtojson');
 const XLSX = require('xlsx');
-const { GOOGLE_CLOUD_PROJECT, GEMINI_MODEL } = require('../../config/constants');
+const { GOOGLE_CLOUD_PROJECT, GEMINI_MODEL, GOOGLE_CLOUD_LOCATION } = require('../../config/constants');
 
 class ExtractorService {
   constructor() {
-    this.ai = new GoogleGenAI({ vertexai: { project: GOOGLE_CLOUD_PROJECT, location: 'us-central1' } });
+    this.ai = new GoogleGenAI({ vertexai: { project: GOOGLE_CLOUD_PROJECT, location: GOOGLE_CLOUD_LOCATION } });
   }
 
   /**
