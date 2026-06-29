@@ -17,6 +17,15 @@ module.exports = {
   GEMINI_API_KEY: process.env.GEMINI_API_KEY,
   GEMINI_MODEL: process.env.GEMINI_MODEL || 'gemini-2.5-flash',
   GOOGLE_CLOUD_PROJECT: process.env.GOOGLE_CLOUD_PROJECT,
+  GOOGLE_CLOUD_LOCATION: process.env.GOOGLE_CLOUD_LOCATION || 'us-central1',
+  getVertexPredictUrl: function(modelId) {
+    const loc = process.env.GOOGLE_CLOUD_LOCATION || 'us-central1';
+    const project = process.env.GOOGLE_CLOUD_PROJECT;
+    if (loc === 'global') {
+      return `https://aiplatform.googleapis.com/v1/projects/${project}/locations/global/publishers/google/models/${modelId}:predict`;
+    }
+    return `https://${loc}-aiplatform.googleapis.com/v1/projects/${project}/locations/${loc}/publishers/google/models/${modelId}:predict`;
+  },
   EMBEDDING_MODEL: process.env.EMBEDDING_MODEL || 'gemini-embedding-001',
   CORS_ORIGIN: process.env.CORS_ORIGIN 
     ? process.env.CORS_ORIGIN.replace(/[\[\]'"]/g, '').split(',').map(s => s.trim()) 

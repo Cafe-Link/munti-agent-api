@@ -1,8 +1,8 @@
 const { GoogleGenAI } = require('@google/genai');
-const { GOOGLE_CLOUD_PROJECT, GEMINI_MODEL } = require('../config/constants');
+const { GOOGLE_CLOUD_PROJECT, GEMINI_MODEL, GOOGLE_CLOUD_LOCATION } = require('../config/constants');
 
 // Initialize Google Gen AI with Vertex AI capabilities
-const ai = new GoogleGenAI({ vertexai: { project: GOOGLE_CLOUD_PROJECT, location: 'us-central1' } });
+const ai = new GoogleGenAI({ vertexai: { project: GOOGLE_CLOUD_PROJECT, location: GOOGLE_CLOUD_LOCATION } });
 
 const systemInstruction = `
 You are a Text-to-Speech (TTS) optimization assistant. Your task is to convert written text (which may contain markdown, special symbols, mathematical equations, tables, code blocks, or nested bullet points) into clear, natural, human-friendly, and highly conversational spoken English.

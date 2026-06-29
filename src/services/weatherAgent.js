@@ -1,5 +1,5 @@
 // Explicitly set Vertex AI configuration to avoid environment-level overrides
-process.env.GOOGLE_CLOUD_LOCATION = 'us-central1';
+process.env.GOOGLE_CLOUD_LOCATION = process.env.GOOGLE_CLOUD_LOCATION || 'us-central1';
 process.env.GOOGLE_GENAI_USE_VERTEXAI = 'true';
 
 const { 
@@ -90,7 +90,7 @@ const runWeatherQuest = async (input, history = [], audioFile = null) => {
   try {
     console.log(`[Service] Processing Input: "${input}"`);
     
-    process.env.GOOGLE_CLOUD_LOCATION = 'us-central1';
+    process.env.GOOGLE_CLOUD_LOCATION = process.env.GOOGLE_CLOUD_LOCATION || 'us-central1';
 
     const session = createSession({
       appName: 'weather-quest',

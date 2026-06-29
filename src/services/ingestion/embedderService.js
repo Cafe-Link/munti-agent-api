@@ -1,12 +1,11 @@
 const axios = require('axios');
 const { GoogleAuth } = require('google-auth-library');
-const { GOOGLE_CLOUD_PROJECT } = require('../../config/constants');
+const { GOOGLE_CLOUD_PROJECT, getVertexPredictUrl } = require('../../config/constants');
 
 class EmbedderService {
   constructor() {
-    this.region = 'us-central1';
     this.modelId = 'text-embedding-004';
-    this.url = `https://${this.region}-aiplatform.googleapis.com/v1/projects/${GOOGLE_CLOUD_PROJECT}/locations/${this.region}/publishers/google/models/${this.modelId}:predict`;
+    this.url = getVertexPredictUrl(this.modelId);
     this.auth = new GoogleAuth({
       scopes: 'https://www.googleapis.com/auth/cloud-platform',
     });

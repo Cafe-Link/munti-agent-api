@@ -5,10 +5,10 @@ const axios = require('axios');
 const FormData = require('form-data');
 
 const { GoogleGenAI } = require('@google/genai');
-const { GOOGLE_CLOUD_PROJECT, GEMINI_MODEL, AI_API_BASE } = require('../config/constants');
+const { GOOGLE_CLOUD_PROJECT, GEMINI_MODEL, AI_API_BASE, GOOGLE_CLOUD_LOCATION } = require('../config/constants');
 const vertexVectorSearchService = require('./vertexVectorSearchService');
 
-const ai = new GoogleGenAI({ vertexai: { project: GOOGLE_CLOUD_PROJECT, location: 'us-central1' } });
+const ai = new GoogleGenAI({ vertexai: { project: GOOGLE_CLOUD_PROJECT, location: GOOGLE_CLOUD_LOCATION } });
 
 const REQUEST_TIMEOUT = 60000;
 
